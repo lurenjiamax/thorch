@@ -116,6 +116,27 @@ reusable key after reboot. Passwords and unwrapped key material must not enter
 persistent logs. Read/write mode remains unimplemented until compatibility,
 checkpoint behavior, ownership, and Android reboot/readback are demonstrated.
 
+## First Thor boot verification
+
+The experimental kernel `7.1.2-thorch17` booted successfully on Thor.
+The hardware daemon and persistent user application service started.
+TEE version ioctl reports implementation 4 (Qualcomm QTEE), and the kernel
+reports QTEE 5.2.0, ICE 4.0.1 and HWKM v2. Device mapper exposes crypt and
+linear targets; default-key is not implemented yet.
+
+The ICE driver reports that the secure firmware does not expose the complete
+wrapped-key SCM interface expected by mainline. Therefore enabling
+`qcom_ice.use_wrapped_keys=1` alone cannot provide the Android legacy path.
+Legacy SCM and KeyMint compatibility still require adaptation. No userdata
+write or decrypted `/sdcard` mount has been performed.
+
+This is a manually installed development kernel, with modules beside release16;
+the installed pacman kernel package and its preset still describe release16.
+A normal kernel package update can replace this experimental boot image.
+The original image is retained as `/boot/KERNEL.thorch16`; automatic bootloader
+fallback is not established. Boot logs use `loglevel=7 ignore_loglevel` and
+systemd status output, with `quiet` removed.
+
 ## Sources
 
 - [TWRP vold](https://github.com/TeamWin/android_system_vold/tree/a164ba05c5fef288059774a776b2e6e1119957cf), android-12.1.
