@@ -10,6 +10,9 @@ source, kernel, and runtime provenance files record the exact resolved inputs
 used for a build. Update the config and imported ROCKNIX image provenance
 together when moving the hardware baseline.
 
+Android shared-storage compatibility work and its current limits are described
+in [android-userdata.md](android-userdata.md).
+
 Thorch supplies the Arch Linux ARM root filesystem, KDE defaults, firmware
 package, initramfs, userspace installers, and a small BinderFS config fragment
 applied on top of the ROCKNIX kernel recipe.

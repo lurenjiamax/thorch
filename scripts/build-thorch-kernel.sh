@@ -42,6 +42,8 @@ Options:
                             local/debug rebuilds. Default is a clean build dir.
   --skip-kernel-patches     Assume the source checkout already has kernel
                             patches applied. DTS overlays are still refreshed.
+  --prepare-only           Apply patches and resolve config without building or
+                            requiring the imported boot template/firmware.
 EOF
 }
 
@@ -88,6 +90,7 @@ fi
 fetch=1
 reuse_build_dir="${THORCH_KERNEL_REUSE_BUILD_DIR:-0}"
 skip_kernel_patches=0
+prepare_only=0
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -177,6 +180,10 @@ while [[ "$#" -gt 0 ]]; do
       skip_kernel_patches=1
       shift
       ;;
+    --prepare-only)
+      prepare_only=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -211,8 +218,10 @@ fi
 [[ -f "${config_abs}" ]] || die "missing base kernel config: ${config_abs}"
 [[ -f "${fragment_abs}" ]] || die "missing Thorch kernel config fragment: ${fragment_abs}"
 [[ -d "${dts_abs}" ]] || die "missing ROCKNIX DTS overlay directory: ${dts_abs}"
-[[ -f "${template_abs}" ]] || die "missing Android boot template: ${template_abs}; run scripts/sync-rocknix-kernel.sh first"
-[[ -d "${dest_abs}/usr/lib/firmware" ]] || die "missing ROCKNIX firmware in ${dest_abs}; run scripts/sync-rocknix-kernel.sh first"
+if [[ "${prepare_only}" -eq 0 ]]; then
+  [[ -f "${template_abs}" ]] || die "missing Android boot template: ${template_abs}; run scripts/sync-rocknix-kernel.sh first"
+  [[ -d "${dest_abs}/usr/lib/firmware" ]] || die "missing ROCKNIX firmware in ${dest_abs}; run scripts/sync-rocknix-kernel.sh first"
+fi
 
 if [[ -n "${tarball_url}" && "${fetch}" -eq 1 ]]; then
   cache_dir="$(path_abs "${THORCH_BUILD_DIR}/cache/kernel")"
@@ -457,11 +466,22 @@ required_kernel_features=(
   KALLSYMS_ALL
   UNICODE
   CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  BLK_DEV_DM
+  DM_CRYPT
+  FS_ENCRYPTION
+  FS_ENCRYPTION_INLINE_CRYPT
+  FS_ENCRYPTION_HW_WRAPPED_V0
+  QCOMTEE
 )
 for symbol in "${required_kernel_features[@]}"; do
   grep -q "^CONFIG_${symbol}=y$" "${build_abs}/.config" || \
     die "kernel config: CONFIG_${symbol} did not resolve to y"
 done
+
+if [[ "${prepare_only}" -eq 1 ]]; then
+  log "prepared ${expected_kernel_release} sources and config at ${build_abs}"
+  exit 0
+fi
 
 mapfile -t dtb_targets < <(
   find "${dts_abs}/qcom" -maxdepth 1 -name 'qcs8550-*.dts' \

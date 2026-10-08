@@ -1,0 +1,155 @@
+From: Thorch contributors
+Subject: [PATCH] fscrypt: opt in to Android wrappedkey_v0 identifiers
+
+Android 13 derives identifiers using HKDF context 1 for both raw and
+hardware-wrapped keys. Upstream uses a separate context for wrapped keys.
+Add a downstream, root-only ioctl flag to select the legacy identifier
+without changing upstream flag 1. Reject mixing key types with the same
+identifier, including keys re-added after removal.
+
+This is only the fscrypt identifier compatibility step. Qualcomm key
+unwrapping, legacy ICE behavior and dm-default-key still need adaptation.
+Reference: AOSP kernel/common android13-5.15 fs/crypto/keyring.c.
+
+diff --git a/fs/crypto/Kconfig b/fs/crypto/Kconfig
+--- a/fs/crypto/Kconfig
++++ b/fs/crypto/Kconfig
+@@ -38,3 +38,12 @@
+ 	depends on FS_ENCRYPTION && BLK_INLINE_ENCRYPTION
+ 	help
+ 	  Enable fscrypt to use inline encryption hardware if available.
++
++config FS_ENCRYPTION_HW_WRAPPED_V0
++	bool "Android legacy hardware-wrapped key identifiers"
++	depends on FS_ENCRYPTION_INLINE_CRYPT
++	help
++	  Accept an explicit downstream ioctl flag for Android wrappedkey_v0
++	  key identifiers. This preserves Android's original HKDF context;
++	  it does not provide the vendor key unwrapping or storage driver.
++	  New upstream hardware-wrapped keys keep their existing identifiers.
+diff --git a/fs/crypto/fscrypt_private.h b/fs/crypto/fscrypt_private.h
+--- a/fs/crypto/fscrypt_private.h
++++ b/fs/crypto/fscrypt_private.h
+@@ -517,6 +517,7 @@
+ 	 * support newer functionality such as hardware-wrapped keys.
+ 	 */
+ 	bool			is_hw_wrapped;
++	bool			is_hw_wrapped_v0;
+ 
+ 	/*
+ 	 * Size of the key in bytes.  This remains set even if ->bytes was
+@@ -564,6 +565,9 @@
+  *	wiped, and the key can no longer be used to unlock inodes.
+  */
+ struct fscrypt_master_key {
++
++	/* Preserve key type even while the secret is removed. */
++	u32				mk_add_key_flags;
+ 
+ 	/*
+ 	 * Link in ->s_master_keys->key_hashtable.
+diff --git a/fs/crypto/keyring.c b/fs/crypto/keyring.c
+--- a/fs/crypto/keyring.c
++++ b/fs/crypto/keyring.c
+@@ -422,6 +422,13 @@
+ 	return err;
+ }
+ 
++static u32 master_key_flags(const struct fscrypt_master_key_secret *secret)
++{
++	if (secret->is_hw_wrapped_v0)
++		return FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED_V0;
++	return secret->is_hw_wrapped ? FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED : 0;
++}
++
+ /*
+  * Allocate a new fscrypt_master_key, transfer the given secret over to it, and
+  * insert it into sb->s_master_keys.
+@@ -441,6 +448,7 @@
+ 	init_rwsem(&mk->mk_sem);
+ 	refcount_set(&mk->mk_struct_refs, 1);
+ 	mk->mk_spec = *mk_spec;
++	mk->mk_add_key_flags = master_key_flags(secret);
+ 
+ 	INIT_LIST_HEAD(&mk->mk_decrypted_inodes);
+ 	spin_lock_init(&mk->mk_decrypted_inodes_lock);
+@@ -475,6 +483,10 @@
+ 				   struct fscrypt_master_key_secret *secret)
+ {
+ 	int err;
++
++	/* Legacy identifiers share the raw-key domain; never mix key types. */
++	if (mk->mk_add_key_flags != master_key_flags(secret))
++		return -EKEYREJECTED;
+ 
+ 	/*
+ 	 * If the current user is already in ->mk_users, then there's nothing to
+@@ -583,8 +595,9 @@
+ 			 * different key identifiers by deriving their key
+ 			 * identifiers using different KDF contexts.
+ 			 */
+-			keyid_kdf_ctx =
+-				HKDF_CONTEXT_KEY_IDENTIFIER_FOR_HW_WRAPPED_KEY;
++			if (!secret->is_hw_wrapped_v0)
++				keyid_kdf_ctx =
++					HKDF_CONTEXT_KEY_IDENTIFIER_FOR_HW_WRAPPED_KEY;
+ 		}
+ 		fscrypt_init_hkdf(&secret->hkdf, kdf_key, kdf_key_size);
+ 		/*
+@@ -606,9 +619,17 @@
+  * just an initial check, as we don't know which ciphers will be used yet.
+  * There is a stricter size check later when the key is actually used by a file.
+  */
++static bool valid_add_key_flags(u32 flags)
++{
++	if (!flags || flags == FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
++		return true;
++	return IS_ENABLED(CONFIG_FS_ENCRYPTION_HW_WRAPPED_V0) &&
++		flags == FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED_V0;
++}
++
+ static inline bool fscrypt_valid_key_size(size_t size, u32 add_key_flags)
+ {
+-	u32 max_size = (add_key_flags & FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED) ?
++	u32 max_size = add_key_flags ?
+ 		       FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE :
+ 		       FSCRYPT_MAX_RAW_KEY_SIZE;
+ 
+@@ -630,7 +651,7 @@
+ 	    payload->type != FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER)
+ 		return -EINVAL;
+ 
+-	if (payload->flags & ~FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
++	if (!valid_add_key_flags(payload->flags))
+ 		return -EINVAL;
+ 
+ 	prep->payload.data[0] = kmemdup(payload, prep->datalen, GFP_KERNEL);
+@@ -778,11 +799,15 @@
+ 	memset(&secret, 0, sizeof(secret));
+ 
+ 	if (arg.flags) {
+-		if (arg.flags & ~FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
++		if (!valid_add_key_flags(arg.flags))
+ 			return -EINVAL;
+ 		if (arg.key_spec.type != FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER)
+ 			return -EINVAL;
+ 		secret.is_hw_wrapped = true;
++		secret.is_hw_wrapped_v0 =
++			arg.flags == FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED_V0;
++		if (secret.is_hw_wrapped_v0 && !capable(CAP_SYS_ADMIN))
++			return -EACCES;
+ 	}
+ 
+ 	if (arg.key_id) {
+diff --git a/include/uapi/linux/fscrypt.h b/include/uapi/linux/fscrypt.h
+--- a/include/uapi/linux/fscrypt.h
++++ b/include/uapi/linux/fscrypt.h
+@@ -129,6 +129,8 @@
+ 	__u32 raw_size;
+ 	__u32 key_id;
+ #define FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED	0x00000001
++/* Downstream opt-in for Android wrappedkey_v0; not combined with flag 1. */
++#define FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED_V0	0x00000002
+ 	__u32 flags;
+ 	__u32 __reserved[7];
+ 	__u8 raw[];
