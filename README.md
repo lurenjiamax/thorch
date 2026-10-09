@@ -1,5 +1,29 @@
 # Thorch
 
+## Custom Kernel Branch: Android Userdata and UFS Gear 5
+
+This experimental branch adds the following changes to the ROCKNIX-derived
+Linux 7.1.2 kernel. It is not an official Thorch or ROCKNIX release.
+
+- Android-compatible `dm-default-key` as a module, with block/fscrypt/F2FS
+  integration to avoid applying metadata encryption twice to encrypted files.
+- Opt-in Qualcomm legacy SCM and Thor HWKM-v2/TME support for original Android
+  hardware-wrapped keys, including initialization-time keyslot/BIST guards.
+- F2FS quota-v2 module support for Android userdata mounts.
+- An SM8550-only candidate correction mapping the maximum 300 MHz UniPro OPP
+  to UFS Gear 5, retaining the negotiated device maximum limit.
+- Measured sequential read improvement from 1831.8 to 3200.0 MiB/s (+74.7%)
+  in the original 8 GiB fio comparison; write performance is not resolved.
+- CPU7 UFS interrupt experiments documented separately. They are **not**
+  enabled by default; CPU governors and filesystem durability remain unchanged.
+
+See [storage performance](docs/custom-kernel-performance.md) and
+[experimental Android userdata mounting](docs/android-userdata-mount.md).
+The kernel does not include a production unlock daemon, proprietary KeyMint
+runtime, device keys, recovery backups, or prebuilt boot images. Original-key
+mounting requires a separately provisioned, device-specific experimental
+backend; installing this kernel alone does not unlock Android userdata.
+
 Thorch is an experimental Arch Linux ARM image for the AYN Thor, built on top of
 public ROCKNIX work. It syncs ROCKNIX's SM8550 kernel recipe, patch stack, Thor
 DTS overlays, firmware, runtime graphics pieces, FEX assets, device

@@ -2,7 +2,7 @@
 
 pkgname=linux-thorch
 pkgver=7.1.2
-pkgrel=17
+pkgrel=20
 pkgdesc='Thorch-packaged ROCKNIX Linux kernel artifacts for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
@@ -34,6 +34,7 @@ verify_waydroid_module_tree() {
   local missing=()
   local module
   local required_modules=(
+    kernel/drivers/md/dm-default-key.ko
     kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko
     kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko
     kernel/net/netfilter/nf_conntrack.ko
@@ -48,9 +49,9 @@ verify_waydroid_module_tree() {
   done
 
   if [[ "${#missing[@]}" -gt 0 ]]; then
-    printf 'linux-thorch is missing Waydroid network module support:\n' >&2
+    printf 'linux-thorch is missing required kernel modules:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
-    printf 'Rebuild/import a kernel module tree with nftables NAT support.\n' >&2
+    printf 'Rebuild/import a kernel module tree with Android metadata and nftables NAT support.\n' >&2
     exit 1
   fi
 }

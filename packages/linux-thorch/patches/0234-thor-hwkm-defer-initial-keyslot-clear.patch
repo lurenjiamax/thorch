@@ -1,0 +1,23 @@
+From: Thorch Android storage adaptation
+Subject: [PATCH] Guard legacy HWKM eviction before initialization
+
+UFS probe clears all keyslots before ICE/TME initialization. Qualcomm's
+vendor HWKM implementation skips eviction until initialization is complete.
+Avoid accessing clock-gated ICE registers or invoking legacy SCM at probe.
+
+diff --git a/drivers/soc/qcom/ice.c b/drivers/soc/qcom/ice.c
+--- a/drivers/soc/qcom/ice.c
++++ b/drivers/soc/qcom/ice.c
+@@ -507,6 +507,12 @@
+ int qcom_ice_evict_key(struct qcom_ice *ice, int slot)
+ {
+ 	if (ice->android_legacy_hwkm) {
++		/* UFS clears every slot during probe, before ICE clocks and the
++		 * TME transport are ready. Match the vendor HWKM eviction guard:
++		 * no MMIO or secure-world clear before HWKM initialization.
++		 */
++		if (!ice->hwkm_init_complete)
++			return 0;
+ 		qcom_ice_writel(ice, 0, QCOM_ICE_REG_CRYPTOCFG(slot));
+ 		wmb();
+ 		return qcom_scm_legacy_ice_clear_key(slot * 2, 0);

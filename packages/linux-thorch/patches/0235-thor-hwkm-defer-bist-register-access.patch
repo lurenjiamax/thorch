@@ -1,0 +1,23 @@
+From: Thorch Android storage adaptation
+Subject: [PATCH] Defer legacy HWKM BIST register read until initialized
+
+Legacy HWKM initialization is deferred until the TME provider is loaded.
+Its BIST register read must not run on the deferred path. Ordinary ICE BIST
+continues to run; this does not disable checks after HWKM initialization.
+
+diff --git a/drivers/soc/qcom/ice.c b/drivers/soc/qcom/ice.c
+--- a/drivers/soc/qcom/ice.c
++++ b/drivers/soc/qcom/ice.c
+@@ -267,7 +267,12 @@
+ 		return err;
+ 	}
+ 
++	/* Legacy initialization is deferred until the TME provider is loaded.
++	 * Do not touch the HWKM register bank while that initialization is
++	 * pending. The ordinary ICE BIST above still applies to plain I/O.
++	 */
+ 	if (ice->use_hwkm &&
++	    (!ice->android_legacy_hwkm || ice->hwkm_init_complete) &&
+ 	    qcom_ice_readl(ice, QCOM_ICE_REG_HWKM_TZ_KM_STATUS) !=
+ 	    (QCOM_ICE_HWKM_KT_CLEAR_DONE |
+ 	     QCOM_ICE_HWKM_BOOT_CMD_LIST0_DONE |
