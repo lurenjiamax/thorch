@@ -13,12 +13,14 @@ id builder >/dev/null 2>&1 || useradd --create-home builder
 work=$(mktemp -d /tmp/thorch-kernel-package-XXXXXXXX)
 trap 'rm -rf -- "$work"' EXIT
 cp -a packages/linux-thorch "$work/"
+cp /etc/makepkg.conf "$work/makepkg.conf"
+printf '\nPKGEXT=".pkg.tar.zst"\n' >> "$work/makepkg.conf"
 chown -R builder:builder "$work"
 chmod 755 "$work"
 # Artifact-only packaging: target BSP/readiness dependencies must not be
 # installed or spoofed in CI. --nodeps preserves them in package metadata.
 runuser -u builder -- env THORCH_ROCKNIX_KERNEL_DIR="$artifacts" \
-  bash -c 'cd "$1/linux-thorch"; makepkg --nodeps --noconfirm --cleanbuild' bash "$work"
+  bash -c 'cd "$1/linux-thorch"; makepkg --config "$1/makepkg.conf" --nodeps --noconfirm --cleanbuild' bash "$work"
 mapfile -t packages < <(find "$work/linux-thorch" -maxdepth 1 -name '*.pkg.tar.zst' -type f)
 [[ ${#packages[@]} == 1 ]] || { echo 'Expected one kernel package' >&2; exit 1; }
 pkg=${packages[0]}
