@@ -12,6 +12,13 @@
 - Not supported on other SM8550 devices, other handhelds, stock Android,
   or arbitrary Arch Linux installations. No Android partition flashing.
 
+CI retains the committed Linux source/config/patch-stack revision but imports
+the ROCKNIX boot template from nightly-20261009, compressed-image SHA256
+`98fd3a08a75df9d394888db86f935fccbcd1204d93d88bd9db1b70b42f6a5cc7`.
+The historical nightly-20260730 download now returns 404. This explicit CI
+input change means the package is not an exact copy of the manually tested
+boot image; review included PROVENANCE and validate boot behavior on hardware.
+
 ## Installation prerequisites
 
 Read [update safety](update-safety.md) and retain tested SD recovery media.

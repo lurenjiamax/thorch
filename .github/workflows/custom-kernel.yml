@@ -25,6 +25,10 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       THORCH_DOCKER_IMAGE: thorch-custom-builder:local
       THORCH_KERNEL_JOBS: '4'
+      # The historical 20260730 nightly has expired upstream. Pin a verified
+      # import template explicitly; do not silently follow the rolling latest.
+      ROCKNIX_KERNEL_RELEASE: nightly-20261009
+      ROCKNIX_KERNEL_IMAGE_SHA256: 98fd3a08a75df9d394888db86f935fccbcd1204d93d88bd9db1b70b42f6a5cc7
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Build native ARM64 builder
