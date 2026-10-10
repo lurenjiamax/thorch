@@ -1,0 +1,50 @@
+name: Custom Thor Kernel Package
+
+on:
+  push:
+    branches:
+      - feat/thor-custom-kernel
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: custom-thor-kernel-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  kernel:
+    needs: checks
+    if: github.ref == 'refs/heads/feat/thor-custom-kernel'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      THORCH_DOCKER_IMAGE: thorch-custom-builder:local
+      THORCH_KERNEL_JOBS: '4'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Build native ARM64 builder
+        run: make docker-image-build
+      - name: Build pinned source kernel
+        run: make docker-kernel
+      - name: Package and validate kernel
+        run: |
+          set -euo pipefail
+          docker run --rm --env GITHUB_SHA --volume "$PWD:/work" --workdir /work \
+            "$THORCH_DOCKER_IMAGE" bash scripts/package-custom-kernel.sh
+          sudo chown -R "$(id -u):$(id -g)" output
+      - name: Publish experimental kernel prerelease
+        run: |
+          set -euo pipefail
+          version=$(cat output/custom-kernel/version.txt)
+          tag="custom-kernel-${version}-${GITHUB_SHA:0:12}"
+          gh release create "$tag" output/custom-kernel/*.pkg.tar.zst \
+            output/custom-kernel/SHA256SUMS output/custom-kernel/INSTALL.md \
+            output/custom-kernel/PROVENANCE \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Experimental AYN Thor SM8550 kernel ${version}" \
+            --notes-file output/custom-kernel/INSTALL.md
