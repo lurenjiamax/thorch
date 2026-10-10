@@ -34,7 +34,12 @@ jobs:
       - name: Build native ARM64 builder
         run: make docker-image-build
       - name: Build pinned source kernel
-        run: make docker-kernel
+        run: |
+          set -euo pipefail
+          docker run --privileged --rm --volume "$PWD:/work" --workdir /work \
+            --env THORCH_KERNEL_JOBS --env ROCKNIX_KERNEL_RELEASE \
+            --env ROCKNIX_KERNEL_IMAGE_SHA256 "$THORCH_DOCKER_IMAGE" \
+            bash -lc 'git config --global --add safe.directory /work; bash scripts/sync-rocknix-kernel.sh --skip-runtime-import'
       - name: Package and validate kernel
         run: |
           set -euo pipefail

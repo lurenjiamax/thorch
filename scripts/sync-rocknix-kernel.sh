@@ -33,7 +33,8 @@ Options:
   --mount-probe-image <path>  Attach and mount a local partitioned image, emit
                               diagnostics, then exit. Used by Linux CI.
   --skip-thorch-kernel-build  Keep the imported ROCKNIX kernel payload. This is
-                              only for local diagnostics; Waydroid will fail.
+                               only for local diagnostics; Waydroid will fail.
+  --skip-runtime-import      Kernel-only build; do not import FEX/graphics runtime.
   --keep-mounted              Leave the loop image mounted for debugging.
 
 Root is required for the preferred loop-device path. If the container runtime
@@ -54,6 +55,7 @@ keep_mounted=0
 allow_unverified="${ROCKNIX_KERNEL_ALLOW_UNVERIFIED:-0}"
 build_thorch_kernel="${THORCH_KERNEL_SOURCE_BUILD:-1}"
 mount_probe_image=""
+skip_runtime_import=0
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -113,6 +115,10 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --skip-thorch-kernel-build)
       build_thorch_kernel=0
+      shift
+      ;;
+    --skip-runtime-import)
+      skip_runtime_import=1
       shift
       ;;
     --keep-mounted)
@@ -482,14 +488,16 @@ log "importing ROCKNIX kernel artifacts from ${image_name}"
   --dest "${dest_abs}" \
   --ref "${ref_label}"
 
-log "importing ROCKNIX runtime artifacts from ${image_name}"
-"${script_dir}/import-rocknix-runtime.sh" \
-  --root-dir "${import_root}" \
-  --dest "${runtime_dest_abs}" \
-  --ref "${ref_label}"
+if [[ "${skip_runtime_import}" == 0 ]]; then
+  log "importing ROCKNIX runtime artifacts from ${image_name}"
+  "${script_dir}/import-rocknix-runtime.sh" \
+    --root-dir "${import_root}" \
+    --dest "${runtime_dest_abs}" \
+    --ref "${ref_label}"
+fi
 
 runtime_provenance="${runtime_dest_abs}/PROVENANCE"
-if [[ -f "${runtime_provenance}" ]]; then
+if [[ "${skip_runtime_import}" == 0 && -f "${runtime_provenance}" ]]; then
   runtime_provenance_tmp="$(mktemp)"
   grep -Ev '^SOURCE_(ROOT_DIR|RUNTIME_ROOT|FEX|FEX_ROOTFS_FETCHER|FEX_HOST_THUNKS|FEX_GUEST_THUNKS|FEX_VULKAN_FREEDRENO)=' "${runtime_provenance}" > "${runtime_provenance_tmp}" || true
   mv -f "${runtime_provenance_tmp}" "${runtime_provenance}"
@@ -511,7 +519,7 @@ mv -f "${provenance_tmp}" "${provenance}"
   [[ -z "${image_sha256}" ]] || printf 'SOURCE_ROCKNIX_IMAGE_SHA256=%s\n' "${image_sha256}"
 } >> "${dest_abs}/PROVENANCE"
 
-if [[ -f "${runtime_provenance}" ]]; then
+if [[ "${skip_runtime_import}" == 0 && -f "${runtime_provenance}" ]]; then
   {
     printf 'ROCKNIX_KERNEL_SOURCE=%s\n' "${source_channel}"
     printf 'ROCKNIX_KERNEL_PLATFORM=%s\n' "${platform}"
