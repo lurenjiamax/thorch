@@ -25,7 +25,7 @@
     {
       "name": "thorch-tme-modules",
       "path": "packages/thorch-tme-modules",
-      "profiles": ["build"],
+      "profiles": ["build", "release"],
       "build_inputs": []
     },
     {
