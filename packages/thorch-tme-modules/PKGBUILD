@@ -1,6 +1,6 @@
 pkgname=thorch-tme-modules
 pkgver=7.1.2
-pkgrel=20
+pkgrel=21
 pkgdesc='Experimental Thor SM8550 TME transport modules for linux-thorch'
 arch=('aarch64')
 url='https://github.com/lurenjiamax/thorch'
@@ -9,7 +9,7 @@ depends=('linux-thorch=7.1.2-20' 'kmod')
 options=('!strip' '!debug')
 
 package() {
-  local release="${pkgver}-thorch${pkgrel}" module
+  local release='7.1.2-thorch20' module
   local artifacts="${THORCH_TME_MODULE_DIR:?CI module artifacts required}"
   for module in aynthor_qmp aynthor_tme tme_overlay_loader; do
     [[ "$(modinfo -F vermagic "${artifacts}/${module}.ko")" == "${release} "* ]] || return 1
