@@ -96,7 +96,7 @@ EXPORT_SYMBOL_GPL(aynthor_tme_broadcast_transport_key);
 '''
     master = (prefix + helper + master[start:end] + wrapper).replace('sizeof(response));', 'sizeof(*response));').replace('invalid length: %u, %u', 'invalid length: %zu, %zu')
     (out / 'tme_broadcast.c').write_text(master)
-    payload = Path(__file__).resolve().parent.parent / 'packages/thorch-tme-modules/src'
+    payload = Path(__file__).resolve().parent.parent / 'packages/thorch-tme-modules/payload'
     (out / 'tme_overlay_loader.c').write_bytes((payload / 'tme_overlay_loader.c').read_bytes())
     (out / 'Makefile').write_text('obj-m += aynthor_qmp.o tme_overlay_loader.o aynthor_tme.o\naynthor_tme-y := tme_client.o tme_broadcast.o\nccflags-y += -I$(src)/include\n')
     subprocess.run(['dtc', '-@', '-I', 'dts', '-O', 'dtb', '-o', str(out / 'tme-overlay.dtbo'), str(payload / 'tme-overlay.dts')], check=True)
