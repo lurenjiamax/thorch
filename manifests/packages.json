@@ -23,6 +23,12 @@
       "build_inputs": ["THORCH_ROCKNIX_KERNEL_DIR"]
     },
     {
+      "name": "thorch-tme-modules",
+      "path": "packages/thorch-tme-modules",
+      "profiles": [],
+      "build_inputs": []
+    },
+    {
       "name": "thorch-firmware-rocknix",
       "path": "packages/thorch-firmware-rocknix",
       "profiles": ["build", "image", "release"],

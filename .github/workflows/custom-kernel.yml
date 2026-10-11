@@ -54,6 +54,7 @@ jobs:
           gh release create "$tag" output/custom-kernel/*.pkg.tar.zst \
             output/custom-kernel/SHA256SUMS output/custom-kernel/INSTALL.md \
             output/custom-kernel/PROVENANCE \
+            output/custom-kernel/TME-PROVENANCE \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "Experimental AYN Thor SM8550 kernel ${version}" \
             --notes-file output/custom-kernel/INSTALL.md

@@ -32,8 +32,18 @@ bsdtar -tf "$pkg" > "$output/package-files.txt"
 grep -q 'usr/lib/modules/7.1.2-thorch20/kernel/drivers/md/dm-default-key.ko' "$output/package-files.txt"
 grep -q 'usr/lib/modules/7.1.2-thorch20/kernel/fs/quota/quota_v2.ko' "$output/package-files.txt"
 cp "$pkg" "$output/"
+python scripts/build-tme-modules.py --source build/kernel-src \
+  --build build/kernel-build --output build/tme-modules
+cp -a packages/thorch-tme-modules "$work/"
+chown -R builder:builder "$work/thorch-tme-modules"
+runuser -u builder -- env THORCH_TME_MODULE_DIR="$root/build/tme-modules" \
+  bash -c 'cd "$1/thorch-tme-modules"; makepkg --config "$1/makepkg.conf" --nodeps --noconfirm --cleanbuild' bash "$work"
+mapfile -t module_packages < <(find "$work/thorch-tme-modules" -maxdepth 1 -name '*.pkg.tar.zst' -type f)
+[[ ${#module_packages[@]} == 1 ]] || { echo 'Expected one module package' >&2; exit 1; }
+cp "${module_packages[0]}" "$output/"
+cp build/tme-modules/PROVENANCE "$output/TME-PROVENANCE"
 printf '%s\n' "$version" > "$output/version.txt"
 cp "$artifacts/PROVENANCE" "$output/PROVENANCE"
 cp docs/custom-kernel-install.md "$output/INSTALL.md"
 printf '\nCI source commit: `%s`\n' "${GITHUB_SHA:-$(git rev-parse HEAD)}" >> "$output/INSTALL.md"
-(cd "$output"; sha256sum ./*.pkg.tar.zst INSTALL.md PROVENANCE > SHA256SUMS)
+(cd "$output"; sha256sum ./*.pkg.tar.zst INSTALL.md PROVENANCE TME-PROVENANCE > SHA256SUMS)

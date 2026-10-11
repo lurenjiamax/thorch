@@ -68,9 +68,15 @@ rebooting. Package rollback may still be required even if hooks restore files.
 
 ## Android userdata compatibility
 
-The package does not distribute KeyMint libraries, keys, TME transport modules
-or an unlock daemon. Rebuild external transport modules for thorch20 and audit
-the unlock helper's version check; thorch19 modules cannot simply be renamed.
+The companion `thorch-tme-modules` package supplies QMP, TME broadcast and
+Thor-only overlay modules built against the same CI kernel. Install both
+packages in one `pacman -U` transaction. It depends on the exact linux-thorch
+package version; no automatic loading or unlocking is enabled. Modules are
+installed under `/usr/lib/modules/7.1.2-thorch20/updates/aynthor`, and the overlay
+under `/usr/lib/firmware/aynthor/tme-overlay.dtbo`. Audit the external helper's
+module paths and version guard before using it. KeyMint libraries, keys and
+an unlock daemon are not distributed. Suspend/resume with unlocked userdata
+is not validated. Source revision and input hashes are in TME-PROVENANCE.
 The packaged boot-generation path must also retain the required opt-in
 wrapped-key arguments. Verify the resulting command line and boot image before
 using the experimental backend. See android-userdata-mount.md for limitations.
