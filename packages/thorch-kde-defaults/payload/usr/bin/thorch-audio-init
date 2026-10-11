@@ -93,9 +93,8 @@ if ! wait_for_name sinks "${speaker_sink}"; then
 	exit 0
 fi
 
-pactl set-default-sink "${speaker_sink}" >/dev/null 2>&1 || true
-pactl set-sink-mute "${speaker_sink}" 0 >/dev/null 2>&1 || true
-pactl set-sink-volume "${speaker_sink}" 35% >/dev/null 2>&1 || true
+# Leave playback routing, mute and volume to WirePlumber's restored state.
+# Initialization must not replace a selected Bluetooth output or reset volume.
 
 if wait_for_name sources "${mic_source}"; then
 	pactl set-default-source "${mic_source}" >/dev/null 2>&1 || true
