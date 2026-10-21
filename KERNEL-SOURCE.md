@@ -16,10 +16,12 @@ an exact recovery of that source. Subsequent reconstruction is recorded in Git.
 | `artifacts/` | Packaged products and deployment evidence |
 
 The parent repository ignores the two independent source checkouts. A parent
-checkout alone does not provide their contents. Their public remotes/pinned CI
-checkout integration are still pending; do not claim clean-run CI reproducibility
-until those repositories are published and explicitly checked out. The builders
-fail if the maintained checkouts are missing; they never regenerate them.
+checkout alone does not provide their contents. Public repositories are
+`https://github.com/lurenjiamax/linux-thorch` and
+`https://github.com/lurenjiamax/thorch-tme`. The custom-kernel workflow checks
+out the full commits pinned in `source-checkouts.conf`. For a local build,
+clone each repository into the paths above and check out those pins explicitly.
+The builders fail if these checkouts are missing; they never regenerate them.
 
 ## Build without modifying source
 
@@ -46,7 +48,7 @@ actual source commits and dirty status. Its compiled overlay comes from the
 maintained `tme-src/tme-overlay.dts`. Identical historical source copies under
 packaging were removed after comparison; their history remains in parent Git.
 
-`scripts/package-recovered-kernel.sh` remains a kernel27-specific artifact
+`scripts/package-recovered-kernel.sh` remains a kernel28-specific artifact
 packager retaining the known 13 DTBs. Its preserved DTB inputs are distinct from
 the general source-DTS build above; do not assume those two paths produce
 identical boot images. No device installation is performed by either builder.
