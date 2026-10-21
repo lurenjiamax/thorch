@@ -14,11 +14,13 @@
 
 CI checks out the public kernel and TME commits in `source-checkouts.conf`,
 compiles those maintained sources without rewriting them, and imports
-the ROCKNIX boot template from nightly-20261009, compressed-image SHA256
-`98fd3a08a75df9d394888db86f935fccbcd1204d93d88bd9db1b70b42f6a5cc7`.
-The historical nightly-20260730 download now returns 404. This explicit CI
-input change means the package is not an exact copy of the manually tested
-boot image; review included PROVENANCE and validate boot behavior on hardware.
+the ROCKNIX boot template from the latest SM8550 nightly available at build
+time. The official adjacent SHA-256 is mandatory: download or verification
+failure stops the build without falling back to another version. PROVENANCE
+records the resolved tag, download URL and verified image hash. The kernel
+and TME source commits stay pinned independently. Review this provenance and
+validate boot behavior on hardware; newer templates are not hardware-tested
+merely because CI compiled them successfully.
 
 ## Installation prerequisites
 

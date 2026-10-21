@@ -363,7 +363,7 @@ for part in "${loop_device}" "${partitions[@]}"; do
 done
 
 for part in "${partitions[@]}"; do
-  mountpoint="$(mktemp -d /tmp/thorch-rocknix-part.XXXXXX)"
+  mountpoint="$(mktemp -d "${cache_abs}/thorch-rocknix-part.XXXXXX")"
   log "mount attempt source=${part} target=${mountpoint} options=ro"
   if mount -v -o ro "${part}" "${mountpoint}"; then
     mounts+=("${mountpoint}")
@@ -383,7 +383,7 @@ if [[ "${#mounts[@]}" -eq 0 ]]; then
   [[ "${partition_start}" =~ ^[0-9]+$ && "${sector_size}" =~ ^[0-9]+$ ]] ||
     die "unable to determine the ROCKNIX boot partition offset"
   partition_offset=$((partition_start * sector_size))
-  userspace_boot_tree="$(mktemp -d /tmp/thorch-rocknix-boot.XXXXXX)"
+  userspace_boot_tree="$(mktemp -d "${cache_abs}/thorch-rocknix-boot.XXXXXX")"
   if ! mcopy -o -i "${image}@@${partition_offset}" \
       ::/KERNEL ::/SYSTEM "${userspace_boot_tree}/"; then
     die "unable to extract ROCKNIX boot files from ${image}"
@@ -430,7 +430,7 @@ normalize_immutable_rocknix_image() {
   local boot_dir="$1"
   [[ -f "${boot_dir}/KERNEL" && -f "${boot_dir}/SYSTEM" ]] || return 1
 
-  work_tree="$(mktemp -d /tmp/thorch-rocknix-tree.XXXXXX)"
+  work_tree="$(mktemp -d "${cache_abs}/thorch-rocknix-tree.XXXXXX")"
   extract_android_boot_kernel \
     "${boot_dir}/KERNEL" \
     "${work_tree}/boot/Image"
@@ -498,14 +498,14 @@ fi
 
 runtime_provenance="${runtime_dest_abs}/PROVENANCE"
 if [[ "${skip_runtime_import}" == 0 && -f "${runtime_provenance}" ]]; then
-  runtime_provenance_tmp="$(mktemp)"
+  runtime_provenance_tmp="$(mktemp "${cache_abs}/runtime-provenance.XXXXXX")"
   grep -Ev '^SOURCE_(ROOT_DIR|RUNTIME_ROOT|FEX|FEX_ROOTFS_FETCHER|FEX_HOST_THUNKS|FEX_GUEST_THUNKS|FEX_VULKAN_FREEDRENO)=' "${runtime_provenance}" > "${runtime_provenance_tmp}" || true
   mv -f "${runtime_provenance_tmp}" "${runtime_provenance}"
   chmod 0644 "${runtime_provenance}"
 fi
 
 provenance="${dest_abs}/PROVENANCE"
-provenance_tmp="$(mktemp)"
+provenance_tmp="$(mktemp "${cache_abs}/kernel-provenance.XXXXXX")"
 grep -Ev '^SOURCE_(BOOT|ROOT)_DIR=|^SOURCE_(IMAGE|DTB|MODULES|FIRMWARE_ROOT)=|^SOURCE_ROCKNIX_BOOT_PAYLOAD=|^(THORCH_KERNEL_|SOURCE_THORCH_KERNEL_|WAYDROID_KERNEL_)' "${provenance}" > "${provenance_tmp}" || true
 mv -f "${provenance_tmp}" "${provenance}"
 {
