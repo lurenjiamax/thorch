@@ -3,16 +3,17 @@
 ## Supported scope
 
 - Target: **AYN Thor with Qualcomm SM8550**, aarch64 Thorch/Arch Linux ARM.
-- Package: **linux-thorch 7.1.2-20**, kernel release **7.1.2-thorch20**.
+- Package: **linux-thorch 7.1.2-29**, kernel release **7.1.2-thorch29**.
 - Requires compatible **thorch-bsp >= 1-27**, mkinitcpio and the machine-local
   **thorch-boot-bootstrap-ready >= 1-1** marker established by update bootstrap.
-- Hardware evidence applies only to AYN Thor/SM8550, manually deployed
-  **7.1.2-thorch19**. The newly packaged thorch20 release is experimental and
-  has not yet passed an on-device pacman installation/reboot test.
+- Hardware validation reached **7.1.2-thorch28** with TME package release 29.
+  The new CI kernel29 / TME30 pair still needs on-device acceptance.
+  Charging stability and suspend/reset remain unresolved.
 - Not supported on other SM8550 devices, other handhelds, stock Android,
   or arbitrary Arch Linux installations. No Android partition flashing.
 
-CI retains the committed Linux source/config/patch-stack revision but imports
+CI checks out the public kernel and TME commits in `source-checkouts.conf`,
+compiles those maintained sources without rewriting them, and imports
 the ROCKNIX boot template from nightly-20261009, compressed-image SHA256
 `98fd3a08a75df9d394888db86f935fccbcd1204d93d88bd9db1b70b42f6a5cc7`.
 The historical nightly-20260730 download now returns 404. This explicit CI
@@ -58,7 +59,8 @@ On a supported, fully updated installation, use a complete system update first
 experimental package transaction:
 
 ```bash
-pacman -U ./linux-thorch-7.1.2-20-aarch64.pkg.tar.zst
+pacman -U ./linux-thorch-7.1.2-29-aarch64.pkg.tar.zst \
+  ./thorch-tme-modules-7.1.2-30-aarch64.pkg.tar.zst
 ```
 
 This local-package procedure is an experimental exception, not a supported
@@ -72,7 +74,7 @@ The companion `thorch-tme-modules` package supplies QMP, TME broadcast and
 Thor-only overlay modules built against the same CI kernel. Install both
 packages in one `pacman -U` transaction. It depends on the exact linux-thorch
 package version; no automatic loading or unlocking is enabled. Modules are
-installed under `/usr/lib/modules/7.1.2-thorch20/updates/aynthor`, and the overlay
+installed under `/usr/lib/modules/7.1.2-thorch29/updates/aynthor`, and the overlay
 under `/usr/lib/firmware/aynthor/tme-overlay.dtbo`. Audit the external helper's
 module paths and version guard before using it. KeyMint libraries, keys and
 an unlock daemon are not distributed. Suspend/resume with unlocked userdata
@@ -81,7 +83,7 @@ The packaged boot-generation path must also retain the required opt-in
 wrapped-key arguments. Verify the resulting command line and boot image before
 using the experimental backend. See android-userdata-mount.md for limitations.
 
-After reboot verify `uname -r` is 7.1.2-thorch20, review kernel/storage errors,
+After reboot verify `uname -r` is 7.1.2-thorch29, review kernel/storage errors,
 and validate a dedicated file before normal use. CPU7 interrupt placement is
 not enabled by this package. Performance evidence and upstream caveats are
 documented in custom-kernel-performance.md.

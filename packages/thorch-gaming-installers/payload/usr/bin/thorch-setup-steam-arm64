@@ -123,7 +123,8 @@ ensure_steam_links() {
 
   replace_symlink "${steam_root}" "${HOME}/.steam/steam" || true
   replace_symlink "${steam_root}" "${HOME}/.steam/root" || true
-  link_first_existing "${HOME}/.steam/sdkarm64" "${steam_root}/steamrtarm64" "${steam_root}/linuxarm64"
+  # Games need the standalone client without the Steam UI runtime dependencies.
+  link_first_existing "${HOME}/.steam/sdkarm64" "${steam_root}/linuxarm64" "${steam_root}/steamrtarm64"
   link_first_existing "${HOME}/.steam/steamrtarm64" "${steam_root}/steamrtarm64" "${steam_root}/linuxarm64"
 }
 

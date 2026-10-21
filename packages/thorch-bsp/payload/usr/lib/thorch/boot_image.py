@@ -548,6 +548,23 @@ def command_extract_kernel(args: argparse.Namespace) -> None:
 
 def command_replace_kernel(args: argparse.Namespace) -> None:
     template = BootImage.read(args.template)
+    if args.append_cmdline:
+        tokens = list(template.command_line_tokens)
+        for token in args.append_cmdline:
+            if not token or any(char.isspace() for char in token):
+                raise BootImageError("append-cmdline requires one argument token")
+            key = token.split("=", 1)[0]
+            if any(item.split("=", 1)[0] == key and item != token for item in tokens):
+                raise BootImageError(f"conflicting existing kernel argument: {key}")
+            if token not in tokens:
+                tokens.append(token)
+        command_line = " ".join(tokens).encode("ascii")
+        if len(command_line) >= 512:
+            raise BootImageError("Thor primary command line exceeds 511 bytes; review template")
+        patched = bytearray(template.data)
+        patched[64:576] = command_line.ljust(512, b"\0")
+        patched[608:1632] = bytes(1024)
+        template = BootImage(template.path, bytes(patched))
     image = Path(args.image).read_bytes()
     data = build_replaced_kernel(template, image, [Path(item) for item in args.dtb])
     write_durable(Path(args.output), data)
@@ -616,6 +633,7 @@ def parser() -> argparse.ArgumentParser:
     replace.add_argument("image")
     replace.add_argument("output")
     replace.add_argument("dtb", nargs="+")
+    replace.add_argument("--append-cmdline", action="append", default=[])
     replace.set_defaults(function=command_replace_kernel)
 
     config = subcommands.add_parser(

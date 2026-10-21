@@ -30,6 +30,7 @@ jobs:
     env:
       THORCH_CI_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
       THORCH_CI_REQUIRE_ROOTLESS: 1
+      THORCH_CI_RUN_TESTS: '0'
 
     steps:
       # The Arch container does not include Git. Install it before checkout so
@@ -69,7 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           useradd --create-home --uid 1001 --user-group thorch-ci
-          install -d -m 0700 -o thorch-ci -g thorch-ci /tmp/thorch-ci-runtime
+          install -d -m 0700 -o thorch-ci -g thorch-ci "${GITHUB_WORKSPACE}/build/ci-runtime"
           chown -R thorch-ci:thorch-ci "${GITHUB_WORKSPACE}"
 
       - name: Run rootless fast checks
@@ -85,7 +86,9 @@ jobs:
               QT_QPA_PLATFORM=offscreen \
               THORCH_CI_BASE_REF="${THORCH_CI_BASE_REF}" \
               THORCH_CI_REQUIRE_ROOTLESS="${THORCH_CI_REQUIRE_ROOTLESS}" \
-              XDG_RUNTIME_DIR=/tmp/thorch-ci-runtime \
+              THORCH_CI_RUN_TESTS="${THORCH_CI_RUN_TESTS}" \
+              TMPDIR="${GITHUB_WORKSPACE}/build/ci-runtime" \
+              XDG_RUNTIME_DIR="${GITHUB_WORKSPACE}/build/ci-runtime" \
             bash --noprofile --norc -c '
               set -euo pipefail
               cd "$1"

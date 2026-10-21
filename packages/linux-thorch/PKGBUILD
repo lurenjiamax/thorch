@@ -2,7 +2,7 @@
 
 pkgname=linux-thorch
 pkgver=7.1.2
-pkgrel=20
+pkgrel=29
 pkgdesc='Thorch-packaged ROCKNIX Linux kernel artifacts for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
@@ -20,7 +20,7 @@ verify_waydroid_kernel_config() {
   local image="$1"
 
   [[ "${THORCH_WAYDROID_KERNEL_REQUIRED:-1}" != "0" ]] || return 0
-  if ! /usr/lib/thorch/boot_image.py check-config \
+  if ! "${THORCH_BOOT_IMAGE_TOOL:-/usr/lib/thorch/boot_image.py}" check-config \
       "${image}" "${startdir}/waydroid-kernel.config"; then
     printf '%s\n' \
       'Rebuild/import a kernel with Binder IPC and BinderFS enabled, or set' \

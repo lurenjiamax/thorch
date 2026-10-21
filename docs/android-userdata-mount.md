@@ -1,139 +1,143 @@
-# Experimental Android Userdata Mounting on Thor
+# Android userdata: collect, import, mount
 
-## Status and safety boundary
+Experimental, AYN Thor / SM8550 with Android 13 and user 0 only. The collector
+currently supports empty-authentication vold keys; unlocking the screen does
+not make password-protected key directories compatible. Keep backups and a
+working boot image. Suspend/reset and charging stability remain unresolved.
+Do not enable automatic mounting or suspend while using this workflow.
 
-This branch supplies kernel support, **not a complete unlock application**.
-The steps below describe the already-provisioned experimental Thor setup used
-for validation. A fresh install cannot follow them until the separate backend,
-original device keyblobs and matching TME transport modules are provisioned.
-Those components are not packaged or redistributed by this branch.
+## 1. Collect in rooted Android
 
-Original Android keys unlocked metadata and user0 files on the tested device;
-a dedicated 158-byte Linux-created file was subsequently read successfully in
-Android. This is not a general password bypass or a production security claim.
-The backend still has legacy-listener, readiness and secure-memory lifecycle
-limitations. Do not enable unattended boot-time unlocking.
+On Linux, install Python `cryptography` and generate a recipient:
 
-- Back up important data externally first. A metadata-prefix backup is not a
-  complete userdata backup. Keep an independently recoverable boot image.
-- Never format userdata, create replacement storage keys, run automatic fsck
-  repair, or copy another device's keyblob. Do not flash Android recovery.
-- Never print dm-default-key tables, passwords or ephemeral key bytes. Keep
-  original keyblobs private; ephemeral conversions must not be persisted.
-- Do not run repair or competing mount/unlock processes concurrently.
-- Verify partition identities on your device; the tested Thor used userdata
-  /dev/sda17 and metadata /dev/sda13. Do not assume these names universally.
+```bash
+python3 userdata/src/keyblob_bundle.py init-recipient "$HOME/.local/share/aynthor-recipient"
+```
 
-## 1. Build and boot the kernel
+Download the **aynthor-userdata-android-collector** artifact from the
+**Android Userdata Collector** GitHub Actions workflow. Extract its four files
+into Android `/sdcard/Download/aynthor-userdata/`. Copy only
+`recipient-public.pem` from the Linux recipient directory into that folder.
+Keep `recipient-private.pem` on Linux, private and backed up.
 
-Follow [the build documentation](build.md) using this branch's normal source
-build, which applies the configured ROCKNIX patch directories followed by
-packages/linux-thorch/patches. Preserve a working boot image and recovery
-method before installation. The package release is 20; the manually deployed
-hardware-tested prototype was 7.1.2-thorch19.
+In an Android root shell, run this single entry point:
 
-Verify dm-default-key and quota_v2 modules match the running kernel. The
-experimental legacy hardware-wrapped path requires both boot arguments:
+```sh
+sh /sdcard/Download/aynthor-userdata/aynthor-userdata-collect.sh
+```
+
+The entry calls its adjacent main script. Output is
+`/sdcard/Download/aynthor-userdata-<timestamp>.tar.gz`; private staging stays in
+`/data/local/aynthor-userdata-<timestamp>`. The archive contains sealed,
+device-bound metadata/DE/CE blobs and this firmware's library pool. It does not
+modify Android keys or userdata. A collection failure is a stop condition;
+do not change credentials or generate replacement keys to work around it.
+Never upload this archive or the recipient private key.
+
+## 2. Place materials on Linux
+
+Extract your own archive into a private directory, then import on the Thor:
+
+```bash
+mkdir -m 700 "$HOME/aynthor-collection"
+tar -xzf /path/to/aynthor-userdata-TIMESTAMP.tar.gz -C "$HOME/aynthor-collection"
+sudo python3 userdata/import-materials.py "$HOME/aynthor-collection" \
+  --recipient-private "$HOME/.local/share/aynthor-recipient/recipient-private.pem"
+```
+
+Requires `readelf` (binutils) and Python `cryptography`. The importer refuses to
+overwrite existing provisioning. Final device-private layout:
+
+```text
+/var/lib/aynthor/android/                    root-only
+  keymint-private/{metadata,user0-de,user0-ce}.keyblob
+  keymint-runtime/properties.env             collected Android versions
+  keymint-runtime/bin/{linker64,native-convert}
+  keymint-runtime/lib64/                     same-firmware libraries
+    conversion-compat.so
+    libaynthor-mink-bridge.so
+```
+
+The importer supplies the blobs, linker, dependency libraries and properties.
+Build the three open backend components on an x86-64 Linux host with Android
+NDK 27.1.12297006 and build-tools 35.0.0 (the native backend uses this device's
+libraries for linking; transfer them privately if building on another host):
+
+```bash
+git submodule update --init --recursive
+bash scripts/build-android-collector.sh
+bash scripts/build-userdata-backend.sh /path/to/keymint-runtime
+```
+
+Install `build/userdata-backend/native-convert` into runtime `bin/`, and
+`conversion-compat.so` plus `libaynthor-mink-bridge.so` into runtime `lib64/`.
+Use root ownership, directory mode 700 and file mode 600; give both executables
+in `bin/` mode 700. Keep all these materials outside Git and public artifacts.
+
+## 3. Validate and mount explicitly
+
+Install matching `linux-thorch` and `thorch-tme-modules` packages using pacman;
+never reuse modules from another kernel release. Boot with both arguments:
 
 ```text
 qcom_ice.use_wrapped_keys=1 qcom_ice.android_legacy_hwkm=1
 ```
 
-Use the project's boot-image tooling rather than blindly appending arguments:
-Thor's boot command-line field has a strict size limit. Installing a regular
-package can replace a manually repacked image and its experimental arguments.
-
-## 2. Provision the separate backend
-
-The validated setup used this private layout (names are prerequisites, not
-files included in the repository):
-
-```text
-/var/lib/aynthor/android/
-  test-thor-metadata-unlock.sh
-  tme-modules/<running-kernel-release>/
-    aynthor_qmp.ko
-    tme_overlay_loader.ko
-    aynthor_tme.ko
-  keymint-private/
-    metadata.keyblob
-    <original user0 DE and CE keyblobs expected by the backend>
-  keymint-runtime/
-    bin/linker64
-    bin/native-convert
-    lib64/<device-specific libraries and compatibility bridges>
-```
-
-The helper loads the transport modules, dm-default-key and quota_v2, then
-invokes the Bionic KeyMint converter with the private metadata keyblob. Its
-validated runtime uses conversion-compat.so and libaynthor-mink-bridge.so.
-Vendor library acquisition, credential handling and secure provisioning are
-separate work; there is no generic download/install command here. Confirm
-legal redistribution rights and private permissions. Do not commit this tree.
-
-The tested helper checks for exactly 7.1.2-thorch19. For a thorch20 rebuild,
-rebuild transport modules and audit the helper's release check rather than
-renaming old modules or bypassing ABI checks. This combination is unverified.
-
-## 3. Start with read-only validation
-
-On the already-provisioned tested setup, as root:
+The helper currently accepts only userdata `/dev/sda17`, verified against
+`/dev/disk/by-partlabel/userdata`. Stop for any other layout. Close competing
+mount and filesystem-check processes. From this source checkout:
 
 ```bash
-bash /var/lib/aynthor/android/test-thor-metadata-unlock.sh --test-metadata-readonly
-bash /var/lib/aynthor/android/test-thor-metadata-unlock.sh --test-user0-readonly
+sudo bash userdata/userdata-mount --test-metadata-readonly
+sudo bash userdata/userdata-mount --test-user0-readonly
 ```
 
-These are temporary probes, not a persistent read-only mount. They must
-validate the decrypted filesystem and clean up mapper/key state before
-continuing. If they fail, stop and investigate; do not repair or generate keys.
-Buffered block-device reads previously produced a misleading decrypted view;
-filesystem diagnostics require the separately validated direct-I/O path.
-
-If a stale probe device or mountpoint remains after an interrupted process,
-inspect its ownership, type and mount/mapper state first. Do not recursively
-delete the mountpoint, which could contain mounted personal data.
-
-## 4. Explicit read/write mount
-
-Only after verifying partition identity, backup, clean probe state and absence
-of fsck. The tested userdata block device is used below:
+These probes clean up after themselves; they do not leave a read-only mount.
+Only after both succeed and backups are available, enable writes explicitly:
 
 ```bash
-blockdev --setrw /dev/sda17
-systemd-run --unit=aynthor-userdata-mount \
+sudo blockdev --setrw /dev/disk/by-partlabel/userdata
+sudo systemd-run --unit=aynthor-userdata-mount \
   --property=TimeoutStopSec=90 --property=LimitCORE=0 \
-  /bin/bash /var/lib/aynthor/android/test-thor-metadata-unlock.sh --mount-user0-rw
-systemctl status aynthor-userdata-mount.service
+  /bin/bash "$PWD/userdata/userdata-mount" --mount-user0-rw
+sudo journalctl -u aynthor-userdata-mount -n 20 --no-pager
 findmnt -M /mnt/android-data
 ```
 
-Wait for successful startup before accessing /mnt/android-data/media/0.
-The long-running backend holds per-boot keys. The mount alone does not prove
-that user0 file contents are unlocked. Verify only an explicitly designated
-test file; do not publish personal filenames or contents. Keep F2FS fsync_mode
-and barriers unchanged. Do not copy Android's nobarrier setting for a score.
+Wait for backend success and verify a designated non-personal test file under
+`/mnt/android-data/media/0`. A mounted filesystem alone does not prove user0
+contents are unlocked. Never run automatic repair, print mapper keys, or change
+F2FS barriers/fsync settings.
 
-## 5. Clean shutdown before switching systems
+## 4. Ordinary-user access
 
-Close applications and shells using the mount, then:
+Install `bindfs`, then share only Android shared storage with your Linux user:
 
 ```bash
-systemctl stop aynthor-userdata-mount.service
+sudo bash userdata/share-userdata "$USER"
+findmnt -M /mnt/aynthor-android/userdata
+```
+
+Open **`/mnt/aynthor-android/userdata`** as that user. Do not recursively chown
+or chmod `/mnt/android-data`; Android ownership must be preserved.
+
+## 5. Stop before rebooting or returning to Android
+
+Close file managers, applications and shells using the shared directory:
+
+```bash
+sudo systemctl stop aynthor-userdata-share.service
+sudo systemctl stop aynthor-userdata-mount.service
+findmnt -M /mnt/aynthor-android/userdata
 findmnt -M /mnt/android-data
-dmsetup ls --target default-key
+sudo dmsetup ls --target default-key
 ```
 
-Expect no mount and no experimental default-key mapper. The helper's SIGTERM
-path removes keys, unmounts and cleans up the mapper. If stopping fails or a
-mount remains, investigate busy users; do not force-kill the holder or reboot
-as a substitute for cleanup. Only after successful cleanup on this device:
+Both mounts and the experimental mapper must be gone. If cleanup fails,
+investigate busy users; do not force-unmount or kill the key holder. After
+successful cleanup, `sudo blockdev --setro /dev/disk/by-partlabel/userdata`
+and `sync`. Validate only your designated test file after booting Android.
 
-```bash
-blockdev --setro /dev/sda17
-sync
-```
-
-This is a transient service, not an enabled boot service. Rebooting requires
-explicit provisioning/unlocking again. Verify a dedicated test file from
-Android after switching systems, without modifying unrelated files.
+The older on-device backend mounted userdata and passed an Android readback.
+This new collection/import workflow still needs end-to-end device acceptance;
+a successful build or Actions run does not establish that acceptance.

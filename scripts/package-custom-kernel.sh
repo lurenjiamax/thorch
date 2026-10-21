@@ -10,8 +10,8 @@ output="$root/output/custom-kernel"
 mkdir -p "$output"
 install -Dm755 packages/thorch-bsp/payload/usr/lib/thorch/boot_image.py /usr/lib/thorch/boot_image.py
 id builder >/dev/null 2>&1 || useradd --create-home builder
-work=$(mktemp -d /tmp/thorch-kernel-package-XXXXXXXX)
-trap 'rm -rf -- "$work"' EXIT
+mkdir -p "$root/build"
+work=$(mktemp -d "$root/build/kernel-package-XXXXXXXX")
 cp -a packages/linux-thorch "$work/"
 cp /etc/makepkg.conf "$work/makepkg.conf"
 printf '\nPKGEXT=".pkg.tar.zst"\n' >> "$work/makepkg.conf"
@@ -26,13 +26,15 @@ mapfile -t packages < <(find "$work/linux-thorch" -maxdepth 1 -name '*.pkg.tar.z
 pkg=${packages[0]}
 bsdtar -xOf "$pkg" .PKGINFO > "$output/PKGINFO"
 version=$(sed -n 's/^pkgver = //p' "$output/PKGINFO")
-[[ "$version" == 7.1.2-20 ]] || { echo "Unexpected version: $version" >&2; exit 1; }
+expected=$(bash -c 'source "$1"; printf "%s-%s" "$pkgver" "$pkgrel"' bash packages/linux-thorch/PKGBUILD)
+release="${expected%-*}-thorch${expected##*-}"
+[[ "$version" == "$expected" ]] || { echo "Unexpected version: $version" >&2; exit 1; }
 grep -qx 'arch = aarch64' "$output/PKGINFO"
 bsdtar -tf "$pkg" > "$output/package-files.txt"
-grep -q 'usr/lib/modules/7.1.2-thorch20/kernel/drivers/md/dm-default-key.ko' "$output/package-files.txt"
-grep -q 'usr/lib/modules/7.1.2-thorch20/kernel/fs/quota/quota_v2.ko' "$output/package-files.txt"
+grep -Fq "usr/lib/modules/$release/kernel/drivers/md/dm-default-key.ko" "$output/package-files.txt"
+grep -Fq "usr/lib/modules/$release/kernel/fs/quota/quota_v2.ko" "$output/package-files.txt"
 cp "$pkg" "$output/"
-python scripts/build-tme-modules.py --source build/kernel-src \
+python scripts/build-tme-modules.py --source kernel-src \
   --build build/kernel-build --output build/tme-modules
 cp -a packages/thorch-tme-modules "$work/"
 chown -R builder:builder "$work/thorch-tme-modules"
