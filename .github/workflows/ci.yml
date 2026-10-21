@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: thorch-ci-${{ github.event.pull_request.number || github.ref }}
+  group: thorch-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
