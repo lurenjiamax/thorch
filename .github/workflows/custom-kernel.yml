@@ -56,12 +56,25 @@ jobs:
           docker run --privileged --rm --volume "$PWD:/work" --workdir /work \
             --env THORCH_KERNEL_JOBS --env THORCH_ANDROID_USERDATA --env ROCKNIX_KERNEL_RELEASE \
             --env ROCKNIX_KERNEL_IMAGE_SHA256 "$THORCH_DOCKER_IMAGE" \
-            bash -lc 'set -euo pipefail; for checkout in /work /work/kernel-src /work/tme-src; do git config --global --add safe.directory "$checkout"; done; bash scripts/sync-rocknix-sources.sh; bash scripts/sync-rocknix-kernel.sh --skip-runtime-import'
+            bash -lc '
+              set -euo pipefail
+              for checkout in /work /work/kernel-src /work/tme-src; do
+                git config --global --add safe.directory "$checkout"
+              done
+              bash scripts/sync-rocknix-sources.sh
+              bash scripts/sync-rocknix-kernel.sh --skip-runtime-import
+            '
       - name: Package and validate kernel
         run: |
           set -euo pipefail
           docker run --rm --env GITHUB_SHA --volume "$PWD:/work" --workdir /work \
-            "$THORCH_DOCKER_IMAGE" bash -lc 'set -euo pipefail; for checkout in /work /work/kernel-src /work/tme-src; do git config --global --add safe.directory "$checkout"; done; bash scripts/package-custom-kernel.sh'
+            "$THORCH_DOCKER_IMAGE" bash -lc '
+              set -euo pipefail
+              for checkout in /work /work/kernel-src /work/tme-src; do
+                git config --global --add safe.directory "$checkout"
+              done
+              bash scripts/package-custom-kernel.sh
+            '
           sudo chown -R "$(id -u):$(id -g)" output
       - name: Publish experimental kernel prerelease
         run: |
