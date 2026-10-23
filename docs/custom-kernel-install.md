@@ -3,11 +3,11 @@
 ## Supported scope
 
 - Target: **AYN Thor with Qualcomm SM8550**, aarch64 Thorch/Arch Linux ARM.
-- Package: **linux-thorch 7.1.2-30**, kernel release **7.1.2-thorch30**.
+- Package: **linux-thorch 7.1.2-31**, kernel release **7.1.2-thorch31**.
 - Requires compatible **thorch-bsp >= 1-40**, mkinitcpio and the machine-local
   **thorch-boot-bootstrap-ready >= 1-1** marker established by update bootstrap.
 - Hardware validation reached **7.1.2-thorch28** with TME package release 29.
-  The new kernel30 / TME31 pair still needs on-device acceptance.
+  The new kernel31 / TME32 pair still needs on-device acceptance.
   Charging stability and suspend/reset remain unresolved.
 - Not supported on other SM8550 devices, other handhelds, stock Android,
   or arbitrary Arch Linux installations. No Android partition flashing.
@@ -91,8 +91,8 @@ partial repository upgrades.
 
 ```bash
 pacman -U ./thorch-bsp-1-40-aarch64.pkg.tar.zst \
-  ./linux-thorch-7.1.2-30-aarch64.pkg.tar.zst \
-  ./thorch-tme-modules-7.1.2-31-aarch64.pkg.tar.zst
+  ./linux-thorch-7.1.2-31-aarch64.pkg.tar.zst \
+  ./thorch-tme-modules-7.1.2-32-aarch64.pkg.tar.zst
 ```
 
 This local-package procedure is an experimental exception, not a supported
@@ -106,7 +106,7 @@ The companion `thorch-tme-modules` package supplies QMP, TME broadcast and
 Thor-only overlay modules built against the same CI kernel. Install both
 packages in one `pacman -U` transaction. It depends on the exact linux-thorch
 package version; no automatic loading or unlocking is enabled. Modules are
-installed under `/usr/lib/modules/7.1.2-thorch30/updates/aynthor`, and the overlay
+installed under `/usr/lib/modules/7.1.2-thorch31/updates/aynthor`, and the overlay
 under `/usr/lib/firmware/aynthor/tme-overlay.dtbo`. Audit the external helper's
 module paths and version guard before using it. KeyMint libraries, keys and
 an unlock daemon are not distributed. Suspend/resume with unlocked userdata
@@ -115,7 +115,7 @@ The packaged boot-generation path must also retain the required opt-in
 wrapped-key arguments. Verify the resulting command line and boot image before
 using the experimental backend. See android-userdata-mount.md for limitations.
 
-After reboot verify `uname -r` is 7.1.2-thorch30, review kernel/storage errors,
+After reboot verify `uname -r` is 7.1.2-thorch31, review kernel/storage errors,
 and validate a dedicated file before normal use. CPU7 interrupt placement is
 not enabled by this package. Performance evidence and upstream caveats are
 documented in custom-kernel-performance.md.

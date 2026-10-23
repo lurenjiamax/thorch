@@ -62,7 +62,7 @@ make "${args[@]}" olddefconfig syncconfig
 [[ "$(make -s "${args[@]}" kernelrelease)" == "$release" ]] || die 'Kernel release mismatch'
 (( prepare_only )) && exit 0
 mapfile -t targets < <(find "$source_dir/arch/arm64/boot/dts/qcom" -maxdepth 1 \
-  -name 'qcs8550-*.dts' -printf 'qcom/%f\n' | sort)
+  -name 'qcs8550-*.dts' ! -name 'qcs8550-aim300-aiot.dts' -printf 'qcom/%f\n' | sort)
 (( ${#targets[@]} )) || die 'Missing committed SM8550 DTS sources'
 dtbs=()
 for target in "${targets[@]}"; do dtbs+=("${target%.dts}.dtb"); done
@@ -82,6 +82,8 @@ if [[ "${THORCH_ANDROID_USERDATA:-0}" == 1 ]]; then
 fi
 python3 "$boot_tool" replace-kernel "$template" "$build_dir/arch/arm64/boot/Image" \
   "$build_dir/thorch-boot.img" "${paths[@]}" "${userdata_args[@]}"
+python3 "$boot_tool" validate "$build_dir/thorch-boot.img" \
+  --require-symbols --require-thor --forbid-aim300
 python3 "$boot_tool" check-config "$build_dir/arch/arm64/boot/Image" \
   "$root/packages/linux-thorch/waydroid-kernel.config"
 mkdir -p "$dest/boot" "$dest/usr/lib/modules"

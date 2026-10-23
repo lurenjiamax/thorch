@@ -9,6 +9,8 @@ artifacts="$root/vendor/rocknix-kernel"
 output="$root/output/custom-kernel"
 mkdir -p "$output"
 install -Dm755 packages/thorch-bsp/payload/usr/lib/thorch/boot_image.py /usr/lib/thorch/boot_image.py
+python3 /usr/lib/thorch/boot_image.py validate "$artifacts/boot/KERNEL" \
+  --require-symbols --require-thor --forbid-aim300
 id builder >/dev/null 2>&1 || useradd --create-home builder
 mkdir -p "$root/build"
 work=$(mktemp -d "$root/build/kernel-package-XXXXXXXX")
