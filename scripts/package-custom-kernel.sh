@@ -43,9 +43,50 @@ runuser -u builder -- env THORCH_TME_MODULE_DIR="$root/build/tme-modules" \
 mapfile -t module_packages < <(find "$work/thorch-tme-modules" -maxdepth 1 -name '*.pkg.tar.zst' -type f)
 [[ ${#module_packages[@]} == 1 ]] || { echo 'Expected one module package' >&2; exit 1; }
 cp "${module_packages[0]}" "$output/"
+cp -a packages/thorch-bsp "$work/"
+chown -R builder:builder "$work/thorch-bsp"
+runuser -u builder -- \
+  bash -c 'cd "$1/thorch-bsp"; makepkg --config "$1/makepkg.conf" --nodeps --noconfirm --cleanbuild' bash "$work"
+mapfile -t bsp_packages < <(find "$work/thorch-bsp" -maxdepth 1 -name '*.pkg.tar.zst' -type f)
+[[ ${#bsp_packages[@]} == 1 ]] || { echo 'Expected one BSP package' >&2; exit 1; }
+cp "${bsp_packages[0]}" "$output/"
+# Audit the actual BSP archive against the builder's installed mkinitcpio hook.
+# Fail if upstream adds a rebuild trigger that our transaction does not cover.
+python3 - "${bsp_packages[0]}" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+
+def triggers(text):
+    result = set()
+    section = None
+    fields = {}
+    def finish():
+        if section == 'Trigger':
+            for operation in fields.get('Operation', []):
+                for target in fields.get('Target', []):
+                    result.add((fields['Type'][0], operation, target))
+    for line in text.splitlines() + ['[End]']:
+        line = line.strip()
+        if line.startswith('['):
+            finish()
+            section, fields = line[1:-1], {}
+        elif '=' in line and not line.startswith('#'):
+            key, value = (part.strip() for part in line.split('=', 1))
+            fields.setdefault(key, []).append(value)
+    return result
+
+required = triggers(Path('/usr/share/libalpm/hooks/90-mkinitcpio-install.hook').read_text())
+for name in ('60-thorch-boot-transaction-prepare.hook', '95-thorch-boot-transaction-commit.hook'):
+    text = subprocess.check_output(['bsdtar', '-xOf', sys.argv[1],
+                                   f'usr/share/libalpm/hooks/{name}'], text=True)
+    missing = required - triggers(text)
+    if missing:
+        raise SystemExit(f'{name} lacks mkinitcpio triggers: {sorted(missing)}')
+print('Packaged BSP covers every installed mkinitcpio rebuild trigger')
+PY
 cp build/tme-modules/PROVENANCE "$output/TME-PROVENANCE"
 printf '%s\n' "$version" > "$output/version.txt"
 cp "$artifacts/PROVENANCE" "$output/PROVENANCE"
 cp docs/custom-kernel-install.md "$output/INSTALL.md"
-printf '\nCI source commit: `%s`\n' "${GITHUB_SHA:-$(git rev-parse HEAD)}" >> "$output/INSTALL.md"
 (cd "$output"; sha256sum ./*.pkg.tar.zst INSTALL.md PROVENANCE TME-PROVENANCE > SHA256SUMS)

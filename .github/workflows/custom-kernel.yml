@@ -63,7 +63,7 @@ jobs:
               done
               bash scripts/sync-rocknix-kernel.sh --skip-runtime-import
             '
-      - name: Package and validate kernel
+      - name: Package and validate kernel, modules and BSP upgrade hooks
         run: |
           set -euo pipefail
           docker run --rm --env GITHUB_SHA --volume "$PWD:/work" --workdir /work \

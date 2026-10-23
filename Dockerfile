@@ -36,6 +36,7 @@ RUN sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf \
       libarchive \
       libelf \
       mtools \
+      mkinitcpio \
       openssl \
       pacman-contrib \
       pahole \
