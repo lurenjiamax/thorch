@@ -1,17 +1,24 @@
 # Build Notes
 
-Thorch uses ROCKNIX's public SM8550/Thor kernel recipe as the downstream
-baseline. We do not build directly from AYN's kernel branch in the normal image
-path; ROCKNIX carries the Thor integration, patch stack, DTS overlays, firmware
-layout, and runtime assumptions that Thorch needs to stay aligned with.
+Thorch maintains its kernel in `kernel-src/` and TME transport in `tme-src/`,
+independent Git repositories outside generated output directories. Their public
+remotes are `https://github.com/lurenjiamax/linux-thorch` and
+`https://github.com/lurenjiamax/thorch-tme`. Clone them into those paths and
+select the revisions in `source-checkouts.conf` before building.
+
+Builders compile these maintained checkouts without fetching, resetting,
+applying patches or rewriting source. Kernel output goes to
+`build/kernel-build/`; external TME modules use `build/tme-modules/` via Kbuild
+`M` and `MO`. Edit maintained sources directly; retain upstream licensing and
+provenance. Runtime versions come from the fixed package recipes.
 
 The requested source and kernel refs live in `config/thorch.conf`. The generated
 source, kernel, and runtime provenance files record the exact resolved inputs
 used for a build. Update the config and imported ROCKNIX image provenance
 together when moving the hardware baseline.
 
-Android shared-storage compatibility work and its current limits are described
-in [android-userdata.md](android-userdata.md).
+Android shared-storage setup and limits are described in
+[android-userdata-mount.md](android-userdata-mount.md).
 
 Thorch supplies the Arch Linux ARM root filesystem, KDE defaults, firmware
 package, initramfs, userspace installers, and a small BinderFS config fragment
@@ -37,11 +44,11 @@ The ROCKNIX kernel sync requires `curl`, `jq`, `losetup`, `mount`,
 Then sync the ROCKNIX image-derived runtime inputs and build the Thorch kernel.
 This is a required clean-build input; `make sync` only downloads public source
 overlays and firmware, not the ABL boot-image template or FEX runtime. By
-default, the kernel sync downloads the pinned official ROCKNIX SM8550 nightly
-declared in `config/thorch.conf`, verifies its checksum, extracts `/KERNEL` and
+default, the kernel sync resolves the latest official ROCKNIX SM8550 nightly,
+verifies its checksum, extracts `/KERNEL` and
 `/SYSTEM`, and normalizes the result
 into `vendor/rocknix-kernel` and `vendor/rocknix-runtime`, then source-builds a
-Thorch Thor kernel from ROCKNIX's Linux recipe with BinderFS enabled:
+Thorch Thor kernel from the maintained checkout with BinderFS enabled:
 
 ```bash
 make kernel
@@ -64,10 +71,6 @@ release artifacts. They also compare the provenance release and module-tree
 directory with `THORCH_KERNEL_REF`, rejecting stale or mismatched kernel
 artifacts before packaging.
 
-SM8550 fan control has a userspace half in `thorch-bsp` and a DT/kernel half in
-ROCKNIX. To pick up ROCKNIX's May 2026 fan-control DT changes, sync a ROCKNIX
-ref that includes ROCKNIX PR #2653 before rebuilding the Thorch kernel.
-
 For clean-room testing, do not import from previous Thorch output directories,
 copied `vendor/rocknix-kernel` trees, or locally built package payloads. Use a
 freshly mounted or freshly extracted ROCKNIX image and keep the `KERNEL_REF`
@@ -82,20 +85,14 @@ runs `scripts/build-thorch-kernel.sh` unless `THORCH_KERNEL_SOURCE_BUILD=0` or
 upstream image, set one of:
 
 ```bash
-ROCKNIX_KERNEL_RELEASE=nightly-20260730 make kernel
-ROCKNIX_KERNEL_RELEASE=nightly-20260720 ROCKNIX_KERNEL_IMAGE_SHA256=<matching-sha256> make kernel
-ROCKNIX_KERNEL_IMAGE_SHA256= ROCKNIX_KERNEL_SOURCE=stable ROCKNIX_KERNEL_RELEASE=latest make kernel
-ROCKNIX_KERNEL_IMAGE_URL=https://.../ROCKNIX-SM8550.aarch64-YYYYMMDD.img.gz ROCKNIX_KERNEL_IMAGE_SHA256=<matching-sha256> make kernel
+ROCKNIX_KERNEL_RELEASE="$RELEASE_TAG" ROCKNIX_KERNEL_IMAGE_SHA256="$IMAGE_SHA256" make kernel
+ROCKNIX_KERNEL_SOURCE=stable ROCKNIX_KERNEL_RELEASE=latest make kernel
 ```
 
-`ROCKNIX_KERNEL_SOURCE` defaults to `nightly`, and the project config pins a
-specific nightly tag for reproducibility. Set `ROCKNIX_KERNEL_RELEASE=latest`
-to follow the moving nightly head, or use `stable` for the stable release
-stream; also update `ROCKNIX_KERNEL_IMAGE_SHA256`, or set it explicitly empty to
-rely only on the selected release's checksum asset. If an upstream image has no
-matching `.sha256` asset, the sync refuses the import unless you provide
-`ROCKNIX_KERNEL_SHA256_URL` or explicitly set `ROCKNIX_KERNEL_ALLOW_UNVERIFIED=1`
-for a local experiment.
+`ROCKNIX_KERNEL_SOURCE` defaults to `nightly` and release selection defaults to
+`latest`. The resolved tag, URL and verified hash are recorded for each build.
+The official checksum is required; failure stops the release build without
+falling back to another image. Source pins remain independent of this template.
 
 Package builds happen in an Arch Linux ARM aarch64 rootfs through
 `THORCH_ROOTFS_RUNNER` and `qemu-aarch64-static`. The runner defaults to plain
@@ -165,7 +162,7 @@ make build
 The generated `/KERNEL` is repacked from the imported ROCKNIX boot image
 template. `scripts/build-thorch-kernel.sh` replaces the template's kernel
 payload with Thorch's ROCKNIX-derived BinderFS kernel and the exact SM8550
-handheld DTB manifest listed by the synced ROCKNIX overlays. DTBs are compiled
+handheld DTS sources in the maintained checkout. DTBs are compiled
 with symbol tables (`DTC_FLAGS=-@`), and stale generic DTBs such as AIM300 are
 not carried into the payload. `thorch-rebuild-abl-kernel` preserves that kernel
 payload and replaces only the ramdisk plus root UUID command line for the

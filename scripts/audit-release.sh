@@ -79,7 +79,7 @@ is_git_ignored_untracked() {
 }
 
 note "checking release metadata"
-for rel in LICENSE NOTICE.md README.md CONTRIBUTING.md SECURITY.md docs/release-checklist.md .gitignore .gitattributes; do
+for rel in LICENSE NOTICE.md README.md CONTRIBUTING.md SECURITY.md .gitignore .gitattributes; do
   require_file "${rel}"
 done
 

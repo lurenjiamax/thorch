@@ -1,121 +1,91 @@
-# Experimental AYN Thor SM8550 Kernel Package
+# Install the Thor kernel
 
-## Supported scope
+Experimental support for **AYN Thor / SM8550 on Thorch/Arch Linux ARM**.
+Not for stock Android, stock ROCKNIX or other handhelds. Charging stability
+and suspend/reset remain unresolved; a successful build does not prove hardware
+acceptance. Stop Android userdata mounts before updating.
 
-- Target: **AYN Thor with Qualcomm SM8550**, aarch64 Thorch/Arch Linux ARM.
-- Package: **linux-thorch 7.1.2-31**, kernel release **7.1.2-thorch31**.
-- Requires compatible **thorch-bsp >= 1-40**, mkinitcpio and the machine-local
-  **thorch-boot-bootstrap-ready >= 1-1** marker established by update bootstrap.
-- Hardware validation reached **7.1.2-thorch28** with TME package release 29.
-  The new kernel31 / TME32 pair still needs on-device acceptance.
-  Charging stability and suspend/reset remain unresolved.
-- Not supported on other SM8550 devices, other handhelds, stock Android,
-  or arbitrary Arch Linux installations. No Android partition flashing.
+## Requirements
 
-CI checks out the public kernel and TME commits in `source-checkouts.conf`,
-compiles those maintained sources without rewriting them, and imports
-the ROCKNIX boot template from the latest SM8550 nightly available at build
-time. The official adjacent SHA-256 is mandatory: download or verification
-failure stops the build without falling back to another version. PROVENANCE
-records the resolved tag, download URL and verified image hash. The kernel
-and TME source commits stay pinned independently. Review this provenance and
-validate boot behavior on hardware; newer templates are not hardware-tested
-merely because CI compiled them successfully.
+- Download BSP, kernel and TME module packages from the **same Release**.
+  Pacman enforces their exact dependencies; do not use `--nodeps`.
+- Complete boot initialization with `sudo thorch-update-bootstrap` on older
+  Thorch installations. The machine-local readiness package must be present.
+- `/boot` must be the real mounted boot filesystem, with space for both the
+  current and candidate images. Run `sudo thorch-check-boot` before installing.
+- Preserve the current kernel packages, modules and boot files outside `/boot`.
+  Keep tested SD recovery media; `KERNEL.previous` has no proven automatic
+  bootloader fallback.
 
-## Installation prerequisites
+The installed system does **not** need the build's ROCKNIX version or source
+revision. Builds use a checksum-verified ROCKNIX SM8550 boot template and record
+its actual source in `PROVENANCE`. The maintained kernel and TME sources are
+selected separately. Android KeyMint libraries and keys must still match their
+original device and firmware; they are not included in these packages.
 
-The installed system does not need to match the build's ROCKNIX version or
-source revision. These packages target Thorch/Arch Linux ARM, not a stock
-ROCKNIX installation. ROCKNIX supplies build-time template/firmware inputs;
-the release records those inputs. TME modules must match the packaged kernel
-exactly; device firmware and Android KeyMint material have separate compatibility
-requirements. Never substitute another device's firmware or private keys.
+## Install
 
-Read [update safety](update-safety.md) and retain tested SD recovery media.
-Back up the existing boot image, initramfs and matching modules. Automatic
-bootloader fallback is not guaranteed. Have enough space on /boot for retained
-and candidate files. Close and cleanly stop any Android userdata mount/view
-before updating the kernel. Do not remove dependency checks or use --nodeps
-on the target device.
-
-Older installations must first obtain a compatible Thorch BSP through their
-existing trusted package source, then run as root:
+Download all three packages, `SHA256SUMS`, `INSTALL.md`, `PROVENANCE` and
+`TME-PROVENANCE` into an otherwise empty directory. In Bash:
 
 ```bash
-thorch-update-bootstrap
+sha256sum -c SHA256SUMS
+packages=(./thorch-bsp-*.pkg.tar.zst ./linux-thorch-*.pkg.tar.zst ./thorch-tme-modules-*.pkg.tar.zst)
+[[ ${#packages[@]} == 3 ]] || { echo 'Use one package of each kind from one Release'; exit 1; }
+pacman -Qp "${packages[@]}"
+sudo pacman -U "${packages[@]}"
+sudo thorch-check-boot
 ```
 
-Confirm bootstrap readiness and run `thorch-check-boot` before a kernel
-transaction. This release includes the required BSP package but does not
-provide a public pacman update feed. Do not install if bootstrap requirements
-cannot be satisfied.
+Packages are unsigned. Checksums detect corruption and do not replace trust in
+the release publisher. Do not weaken system-wide signature policy. If local
+policy requires signatures, use independently reviewed and signed packages.
+Keep normal full-system upgrade policy; avoid partial repository upgrades.
 
-### Existing initramfs mismatch
+Read all transaction-hook output: pacman can finish installing packages even
+if a post-transaction hook fails. **Do not reboot after any hook or boot-check
+failure.** The hooks retain the old boot files and modules, rebuild the new
+initramfs and `KERNEL`, and publish only a validated image. Recovery of boot
+files does not roll back pacman's package database; reinstall matching retained
+packages when necessary.
 
-Older BSP hooks missed system-library-only mkinitcpio rebuilds. If the checker
-reports only an embedded-ramdisk mismatch, preserve `/boot/KERNEL`, both
-initramfs files and matching kernel packages outside `/boot` first. Check that
-the running kernel matches the installed package and the current boot image.
-Then use the existing tools:
+## Verify after reboot
+
+After installation and boot validation succeed, run `sudo systemctl reboot`.
+Then compare the running release with the installed package's module directory:
+
+```bash
+uname -r
+pacman -Q thorch-bsp linux-thorch thorch-tme-modules
+pacman -Qlq linux-thorch | grep '/Image$'
+sudo thorch-check-boot
+modinfo -F vermagic aynthor_tme
+systemctl --failed
+sudo journalctl -b -k -p warning --no-pager
+```
+
+The kernel release in `uname -r`, the installed Image path and module vermagic
+must agree. Confirm display, input, networking and the features you actually
+use. Retain rollback materials until acceptance is complete. Never force-load
+old modules under a new kernel.
+
+Android userdata access is separate and never enabled automatically. Follow
+[collect, import and mount](android-userdata-mount.md); kernel installation alone
+does not provision keys or a vendor runtime.
+
+## Existing initramfs mismatch
+
+Older BSP hooks missed some system-library-only mkinitcpio rebuilds. If the
+only error is an embedded-ramdisk mismatch, first back up `/boot/KERNEL`, both
+initramfs files and matching packages. Confirm that the boot image, running
+kernel and installed Image match, then use the existing tools:
 
 ```bash
 sudo thorch-rebuild-abl-kernel --source-kernel /boot/KERNEL
 sudo thorch-check-boot
 ```
 
-The repacker retains `KERNEL.previous` and validates before atomic replacement.
-Stop on any other validation error or unknown kernel identity; do not disable
-transaction hooks. Install the BSP fix before further system updates. Its
-hooks cover mkinitcpio's firmware, initcpio, system-library and module triggers.
-For manual initramfs regeneration outside pacman, rebuild and check `KERNEL`
-with these tools before rebooting as well.
-
-## Package installation
-
-Download the package, INSTALL.md, PROVENANCE and SHA256SUMS from the same
-release. Review the included provenance and verify checksums:
-
-```bash
-sha256sum -c SHA256SUMS
-```
-
-Checksums detect corruption; they are not package signatures. This experimental
-CI package is unsigned. Trust in the GitHub release is required; do not disable
-system-wide signature policy to install it. A policy requiring local package
-signatures needs an independently reviewed/signed package instead.
-
-On a supported installation, install the three companion packages together.
-Older systems must first resolve any existing boot mismatch as described above.
-Keep the normal full-system update policy; do not use dependency bypasses or
-partial repository upgrades.
-
-```bash
-pacman -U ./thorch-bsp-1-40-aarch64.pkg.tar.zst \
-  ./linux-thorch-7.1.2-31-aarch64.pkg.tar.zst \
-  ./thorch-tme-modules-7.1.2-32-aarch64.pkg.tar.zst
-```
-
-This local-package procedure is an experimental exception, not a supported
-public update channel. Stop if dependencies cannot be resolved or boot hooks
-fail. Review hook output and run `thorch-check-boot` successfully before
-rebooting. Package rollback may still be required even if hooks restore files.
-
-## Android userdata compatibility
-
-The companion `thorch-tme-modules` package supplies QMP, TME broadcast and
-Thor-only overlay modules built against the same CI kernel. Install both
-packages in one `pacman -U` transaction. It depends on the exact linux-thorch
-package version; no automatic loading or unlocking is enabled. Modules are
-installed under `/usr/lib/modules/7.1.2-thorch31/updates/aynthor`, and the overlay
-under `/usr/lib/firmware/aynthor/tme-overlay.dtbo`. Audit the external helper's
-module paths and version guard before using it. KeyMint libraries, keys and
-an unlock daemon are not distributed. Suspend/resume with unlocked userdata
-is not validated. Source revision and input hashes are in TME-PROVENANCE.
-The packaged boot-generation path must also retain the required opt-in
-wrapped-key arguments. Verify the resulting command line and boot image before
-using the experimental backend. See android-userdata-mount.md for limitations.
-
-After reboot verify `uname -r` is 7.1.2-thorch31, review kernel/storage errors,
-and validate a dedicated file before normal use. CPU7 interrupt placement is
-not enabled by this package. Performance evidence and upstream caveats are
-documented in custom-kernel-performance.md.
+The repacker validates before atomic replacement and retains `KERNEL.previous`.
+Stop for any other error or unknown kernel identity; do not disable hooks.
+Install the companion BSP before further system updates. Manual initramfs
+rebuilds outside pacman also require repacking and checking `KERNEL` before reboot.
