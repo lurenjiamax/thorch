@@ -469,6 +469,11 @@ def write_durable(path: Path, data: bytes) -> None:
 
 def command_validate(args: argparse.Namespace) -> None:
     boot = BootImage.read(args.boot_image)
+    if args.crypto_template:
+        template = BootImage.read(args.crypto_template)
+        for token in template.command_line_tokens:
+            if token.startswith("qcom_ice.") and token not in boot.command_line_tokens:
+                raise BootImageError(f"Boot image lost template crypto argument: {token}")
     if args.expect_root_uuid is not None:
         boot.require_root_uuid(args.expect_root_uuid)
     image, dtbs = validate_boot(
@@ -516,6 +521,10 @@ def command_prepare_repack(args: argparse.Namespace) -> None:
     outdir = Path(args.output_directory)
     outdir.mkdir(parents=True, exist_ok=True)
     write_durable(outdir / "kernel", boot.kernel_payload)
+    (outdir / "crypto-cmdline").write_text(
+        "\n".join(token for token in boot.command_line_tokens
+                  if token.startswith("qcom_ice.")), encoding="ascii"
+    )
     if boot.second:
         write_durable(outdir / "second", boot.second)
     (outdir / "bootimg.env").write_text(
@@ -597,6 +606,7 @@ def parser() -> argparse.ArgumentParser:
     validate = subcommands.add_parser("validate", help="validate a Thorch boot image")
     validate.add_argument("boot_image")
     validate.add_argument("--require-cmdline", action="append", default=[])
+    validate.add_argument("--crypto-template", help="require the template's ICE arguments")
     validate.add_argument("--allow-raw-kernel", action="store_true")
     validate.add_argument("--require-symbols", action="store_true")
     validate.add_argument("--require-thor", action="store_true")

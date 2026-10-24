@@ -84,7 +84,13 @@ check_file "Android boot image KERNEL" "${kernel_path}"
 check_file "canonical boot-image validator" "${boot_tool}"
 
 if [[ -f "${kernel_path}" && -f "${boot_tool}" && -n "${root_uuid}" ]]; then
+  template_args=()
+  template="${boot_dir%/boot}/usr/share/thorch/rocknix/KERNEL"
+  if [[ -f "${template}" ]]; then
+    template_args=(--crypto-template "${template}")
+  fi
   if python3 "${boot_tool}" validate "${kernel_path}" \
+    "${template_args[@]}" \
     --expect-root-uuid "${root_uuid}" \
     --require-cmdline fbcon=rotate:1 \
     --require-cmdline allow_mismatched_32bit_el0 \
