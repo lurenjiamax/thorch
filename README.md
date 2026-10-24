@@ -1,5 +1,17 @@
 # Thorch
 
+## Thor vibration and sensors
+
+- [Vibration setup](docs/thor-vibration.md): required kernel/InputPlumber
+  repositories and packages, Thor voltage/LRA correction, controls and checks.
+- [Accelerometer and gyroscope setup](docs/thor-sensors.md): runtime/software
+  dependencies, device-owned firmware and calibration import, SSC verification
+  and motion-capable controller output for games.
+
+These are experimental Thorch/Arch Linux ARM procedures. Sensor provisioning
+requires private files from your own device; public packages alone are
+insufficient. Neither guide claims complete suspend/resume support.
+
 ## Custom Kernel Branch: Android Userdata and UFS Gear 5
 
 This experimental branch adds the following changes to the ROCKNIX-derived
