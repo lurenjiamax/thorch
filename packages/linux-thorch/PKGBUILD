@@ -2,12 +2,12 @@
 
 pkgname=linux-thorch
 pkgver=7.1.2
-pkgrel=31
+pkgrel=32
 pkgdesc='Thorch-packaged ROCKNIX Linux kernel artifacts for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
 license=(GPL-2.0-only)
-depends=(coreutils kmod mkinitcpio 'thorch-boot-bootstrap-ready>=1-1' 'thorch-bsp>=1-40')
+depends=(coreutils kmod mkinitcpio 'thorch-boot-bootstrap-ready>=1-1' 'thorch-bsp>=1-42')
 makedepends=(python)
 provides=("linux=${pkgver}" "linux-aarch64=${pkgver}")
 conflicts=(linux linux-aarch64)
@@ -80,15 +80,11 @@ EOF
 
   verify_waydroid_kernel_config "${image}"
 
-  kernver="$(find "${modules_root}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | head -n1)"
-  [[ -n "${kernver}" ]] || {
-    echo "unable to determine kernel release from ${modules_root}" >&2
-    exit 1
-  }
   expected_kernver="${pkgver}-thorch${pkgrel}"
-  [[ "${kernver}" == "${expected_kernver}" ]] || {
-    printf 'linux-thorch kernel release is %s, expected %s; rebuild the kernel after every package release bump\n' \
-      "${kernver}" "${expected_kernver}" >&2
+  kernver="${expected_kernver}"
+  [[ -d "${modules_root}/${kernver}" ]] || {
+    printf 'missing expected kernel modules %s; rebuild after every package release bump\n' \
+      "${kernver}" >&2
     exit 1
   }
 
