@@ -21,13 +21,17 @@ for component in inputplumber-src motion-src hexagonrpc-src libssc-src dump-src;
   [[ -d "$root/$component/.git" ]] || { echo "Missing checkout: $component" >&2; exit 1; }
   git config --global --add safe.directory "$root/$component"
   runuser -u builder -- git config --global --add safe.directory "$root/$component"
+  # makepkg deliberately disables global Git config. Its dedicated system
+  # config must carry the same narrowly scoped ownership exceptions.
+  git config --file "$work/gitconfig" --add safe.directory "$root/$component"
 done
+chmod 644 "$work/gitconfig"
 package() {
   local recipe=$1; shift
   # makepkg writes package metadata in startdir, while BUILDDIR/PKGDEST keep
   # compilation and archives outside the maintained component source trees.
   chown builder:builder "$recipe"
-  runuser -u builder -- env "$@" makepkg --config "$work/makepkg.conf" \
+  runuser -u builder -- env MAKEPKG_GIT_CONFIG="$work/gitconfig" "$@" makepkg --config "$work/makepkg.conf" \
     --dir "$recipe" --nodeps --nocheck --noconfirm
 }
 bash scripts/package-custom-kernel.sh
