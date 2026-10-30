@@ -89,3 +89,49 @@ The repacker validates before atomic replacement and retains `KERNEL.previous`.
 Stop for any other error or unknown kernel identity; do not disable hooks.
 Install the companion BSP before further system updates. Manual initramfs
 rebuilds outside pacman also require repacking and checking `KERNEL` before reboot.
+
+## Persistent suspend diagnostics (opt-in)
+
+The Thor DT allocates ramoops memory without selecting a fixed physical address,
+following the stock firmware's allocation approach. This provides storage for
+panic/oops dumps, console output, pmsg markers and filtered function traces.
+Allocation does not prove retention: validate a marker across a warm reboot
+before relying on it. Power removal or firmware clearing RAM can lose records.
+
+For a diagnostic session, set `THORCH_BOOT_DEBUG=1` in
+`/etc/thorch/boot-debug.conf`, enable `thorch-pm-debug.service`, then rebuild
+and check the boot image using the existing repacker before rebooting. Debug
+boots remove the normal quiet/watchdog-disable arguments, keep the console active during suspend and
+increase the printk/pstore log budgets. The service enables bounded function
+filters for sync, ICE and TME/QMP plus per-filesystem sync logging. It refuses
+to overwrite existing function tracing. Lockup/hung-task detection reports
+stacks without automatically forcing panic. The buddy hard-lockup detector
+depends on another CPU making progress and cannot diagnose every firmware hang.
+
+Check `systemctl status thorch-pm-debug.service`, ramoops registration in
+`dmesg`, `/sys/kernel/debug/pstore/record_ftrace`, and
+`/sys/kernel/tracing/set_ftrace_filter`. Records from the previous boot appear
+in `/sys/fs/pstore` or are archived by `systemd-pstore.service` under
+`/var/lib/systemd/pstore`. Normal tracefs buffers are not persistent. Function
+tracing and an active console can change timing; compare with diagnostics off
+after locating the fault. Logs may contain private device information; do not
+publish them unreviewed.
+
+`thorch-pm-debug.service` also starts `thorch-pm-log.service`. The latter
+reads `/dev/kmsg` and a dedicated PM/UFS trace instance, synchronously writing
+each batch to `/var/lib/thorch/pm-logs/<boot-id>/`. It reports ready only after
+both inputs and output files are open. Each stream rotates at 16 MiB, retaining
+one previous file; boot directories are retained for manual archival. Check
+free space before extended diagnostic sessions. These files do not depend on
+ramoops retention or journal flushing. Synchronous writes alter timing and
+cannot capture anything after scheduling/storage stops. The logger is in
+`system.slice`, but all userspace capture still stops during the kernel's
+system-wide task freeze. An empty log is not proof that a stage was never run.
+Stop `thorch-pm-log.service` as well when disabling diagnostics. Ramoops
+retention on Thor remains unverified; do not treat its registration as proof
+of crash capture.
+
+To disable, stop/disable `thorch-pm-debug.service`, set `THORCH_BOOT_DEBUG=0`,
+repack/check and reboot. Detector runtime settings reset on reboot. A controlled
+panic is a separate destructive validation step: save work and cleanly unmount
+userdata first; do not trigger it as part of ordinary installation.

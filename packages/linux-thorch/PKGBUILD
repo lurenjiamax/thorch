@@ -2,12 +2,12 @@
 
 pkgname=linux-thorch
 pkgver=7.1.2
-pkgrel=32
+pkgrel=33
 pkgdesc='Thorch-packaged ROCKNIX Linux kernel artifacts for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
 license=(GPL-2.0-only)
-depends=(coreutils kmod mkinitcpio 'thorch-boot-bootstrap-ready>=1-1' 'thorch-bsp>=1-42')
+depends=(coreutils kmod mkinitcpio 'thorch-boot-bootstrap-ready>=1-1' 'thorch-bsp>=1-43')
 makedepends=(python)
 provides=("linux=${pkgver}" "linux-aarch64=${pkgver}")
 conflicts=(linux linux-aarch64)

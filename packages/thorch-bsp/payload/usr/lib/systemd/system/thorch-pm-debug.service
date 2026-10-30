@@ -1,0 +1,16 @@
+[Unit]
+Description=Thor opt-in persistent suspend diagnostics
+After=systemd-pstore.service systemd-modules-load.service
+Requires=thorch-pm-log.service
+After=thorch-pm-log.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/thorch/boot-debug.conf
+ExecCondition=/bin/sh -c 'test "$THORCH_BOOT_DEBUG" = 1'
+ExecStart=/bin/bash /usr/lib/thorch/pm-debug start
+ExecStop=/bin/bash /usr/lib/thorch/pm-debug stop
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

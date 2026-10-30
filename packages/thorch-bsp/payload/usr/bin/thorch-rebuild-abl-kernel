@@ -153,7 +153,14 @@ python3 "${boot_tool}" prepare-repack "${source_kernel}" "${tmpdir}"
 
 # shellcheck disable=SC1091
 . "${tmpdir}/bootimg.env"
-cmdline="panic=30 audit=0 quiet rw rootwait rootdelay=15 allow_mismatched_32bit_el0 fw_devlink.strict=1 pcie_ports=compat irqaffinity=0-2 cgroup.memory=nokmem,nosocket nosoftlockup usbcore.interrupt_interval_override=045e:028e:2 mem_sleep_default=s2idle ufshcd_core.uic_cmd_timeout=3000 console=tty0 console=ttyMSM0,115200n8 fbcon=rotate:1 root=UUID=${root_uuid} rootfstype=${rootfstype}"
+debug_config="${THORCH_BOOT_DEBUG_CONFIG:-/etc/thorch/boot-debug.conf}"
+[[ ! -r "$debug_config" ]] || source "$debug_config"
+case "${THORCH_BOOT_DEBUG:-0}" in
+  0) logging_args="quiet nowatchdog" ;;
+  1) logging_args="no_console_suspend" ;;
+  *) fail "THORCH_BOOT_DEBUG must be 0 or 1" ;;
+esac
+cmdline="panic=30 audit=0 ${logging_args} rw rootwait rootdelay=15 allow_mismatched_32bit_el0 fw_devlink.strict=1 pcie_ports=compat irqaffinity=0-2 cgroup.memory=nokmem,nosocket usbcore.interrupt_interval_override=045e:028e:2 mem_sleep_default=s2idle ufshcd_core.uic_cmd_timeout=3000 console=tty0 console=ttyMSM0,115200n8 fbcon=rotate:1 root=UUID=${root_uuid} rootfstype=${rootfstype}"
 # ICE is initialized before userspace; preserve the selected kernel template's
 # opt-in crypto ABI rather than silently reverting to raw-key-only support.
 crypto_args=()
@@ -162,6 +169,7 @@ while IFS= read -r token || [[ -n "${token}" ]]; do
   cmdline+=" ${token}"
   crypto_args+=(--require-cmdline "${token}")
 done < "${tmpdir}/crypto-cmdline"
+(( ${#cmdline} <= 511 )) || fail "Thor primary command line exceeds 511 bytes; retain ICE arguments and reduce optional flags"
 mkbootimg_args=(
   --kernel "${tmpdir}/kernel"
   --ramdisk "${initrd_image}"
