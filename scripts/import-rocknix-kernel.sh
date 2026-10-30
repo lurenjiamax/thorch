@@ -176,6 +176,16 @@ extract_android_boot_image() {
 }
 
 [[ -n "${kernel_boot}" && -f "${kernel_boot}" ]] || die "could not find ROCKNIX KERNEL under ${boot_dir}"
+if [[ -z "${image}" && -f "$(dirname "${kernel_boot}")/loader/entries/rocknix.conf" ]]; then
+  python3 - "${boot_tool}" "${kernel_boot}" <<'PY'
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(sys.argv[1]).parent))
+import boot_image
+boot_image.validate_arm64_image(Path(sys.argv[2]).read_bytes())
+PY
+  image="${kernel_boot}"
+fi
 [[ -n "${modules_root}" && -d "${modules_root}" ]] || die "could not find ROCKNIX modules under ${root_dir}"
 [[ -n "${firmware_root}" && -d "${firmware_root}" ]] || die "could not find ROCKNIX firmware under ${root_dir}"
 for firmware in "${required_firmware[@]}"; do
@@ -195,7 +205,8 @@ if [[ -n "${firmware_root}" && -d "${firmware_root}" ]]; then
 fi
 install -Dm644 "${kernel_boot}" "${dest_abs}/boot/KERNEL"
 for entry in dtbs loader; do
-  [[ ! -d "${boot_dir_abs}/${entry}" ]] || cp -a "${boot_dir_abs}/${entry}" "${dest_abs}/boot/"
+  boot_entry_dir="$(dirname "${kernel_boot}")/${entry}"
+  [[ ! -d "${boot_entry_dir}" ]] || cp -a "${boot_entry_dir}" "${dest_abs}/boot/"
 done
 
 {
