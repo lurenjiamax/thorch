@@ -388,6 +388,7 @@ if [[ "${#mounts[@]}" -eq 0 ]]; then
       ::/KERNEL ::/SYSTEM "${userspace_boot_tree}/"; then
     die "unable to extract ROCKNIX boot files from ${image}"
   fi
+  mcopy -s -o -i "${image}@@${partition_offset}" ::/dtbs ::/loader "${userspace_boot_tree}/" || true
   mounts+=("${userspace_boot_tree}")
 fi
 
@@ -431,10 +432,8 @@ normalize_immutable_rocknix_image() {
   [[ -f "${boot_dir}/KERNEL" && -f "${boot_dir}/SYSTEM" ]] || return 1
 
   work_tree="$(mktemp -d "${cache_abs}/thorch-rocknix-tree.XXXXXX")"
-  extract_android_boot_kernel \
-    "${boot_dir}/KERNEL" \
-    "${work_tree}/boot/Image"
-  install -Dm644 "${boot_dir}/KERNEL" "${work_tree}/boot/KERNEL"
+  python3 "${script_dir}/prepare-rocknix-boot.py" "${boot_dir}" \
+    "${work_tree}/boot" || return 1
 
   log "extracting ROCKNIX kernel modules and runtime files from SYSTEM"
   unsquashfs -no-progress -f -d "${work_tree}/system" \
@@ -514,6 +513,12 @@ mv -f "${provenance_tmp}" "${provenance}"
   printf 'SOURCE_ROCKNIX_IMAGE_URL=%s\n' "${image_url}"
   printf 'SOURCE_ROCKNIX_IMAGE_FILE=%s\n' "${downloaded}"
   printf 'SOURCE_ROCKNIX_BOOT_PAYLOAD=/KERNEL\n'
+  if [[ -f "${boot_mount}/dtbs/qcs8550-ayn-thor.dtb" ]]; then
+    printf 'SOURCE_ROCKNIX_THOR_DTB=/dtbs/qcs8550-ayn-thor.dtb\n'
+    printf 'SOURCE_ROCKNIX_LOADER_CONFIG=/loader/entries/rocknix.conf\n'
+    printf 'THORCH_LEGACY_BOOT_CONFIG_SHA256=%s\n' \
+      "$(sha256sum "${root}/config/thor-legacy-boot.json" | awk '{print $1}')"
+  fi
   printf 'SOURCE_ROCKNIX_SYSTEM_PAYLOAD=/SYSTEM\n'
   printf 'SOURCE_ROCKNIX_FIRMWARE_FILES=/usr/lib/firmware/qcom/a740_sqe.fw /usr/lib/firmware/qcom/gmu_gen70200.bin /usr/lib/firmware/qcom/sm8550/a740_zap.mbn\n'
   [[ -z "${image_sha256}" ]] || printf 'SOURCE_ROCKNIX_IMAGE_SHA256=%s\n' "${image_sha256}"

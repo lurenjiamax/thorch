@@ -1,0 +1,11 @@
+{
+  "kernel_offset": "0x10000000",
+  "ramdisk_offset": "0x10000000",
+  "second_offset": "0x0",
+  "tags_offset": "0x10000000",
+  "pagesize": "2048",
+  "cmdline_append": [
+    "qcom_ice.use_wrapped_keys=1",
+    "qcom_ice.android_legacy_hwkm=1"
+  ]
+}
