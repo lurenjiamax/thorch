@@ -19,6 +19,7 @@ printf '\nPKGEXT=".pkg.tar.zst"\nBUILDDIR="%s/work"\nPKGDEST="%s"\n' "$work" "$o
 chown -R builder:builder "$work" "$out"
 for component in inputplumber-src motion-src hexagonrpc-src libssc-src dump-src; do
   [[ -d "$root/$component/.git" ]] || { echo "Missing checkout: $component" >&2; exit 1; }
+  git config --global --add safe.directory "$root/$component"
   runuser -u builder -- git config --global --add safe.directory "$root/$component"
 done
 package() {
