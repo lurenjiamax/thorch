@@ -505,12 +505,18 @@ if [[ "${needs_rocknix_sync}" -eq 1 ]]; then
   log "syncing ROCKNIX runtime and source-building Thorch SM8550 kernel artifacts"
   "${script_dir}/sync-rocknix-kernel.sh"
 fi
-if { [[ " ${packages[*]} " == *" thorch-gamescope "* ]] ||
+source_sync_args=()
+if [[ " ${packages[*]} " == *" thorch-firmware-rocknix "* ]]; then
+  source_sync_args+=(--with-firmware)
+fi
+if { { [[ " ${packages[*]} " == *" thorch-gamescope "* ]] ||
   [[ " ${packages[*]} " == *" thorch-inputplumber "* ]] ||
   [[ " ${packages[*]} " == *" thorch-rocknix-quirks "* ]] ||
-  [[ " ${packages[*]} " == *" thorch-mangohud "* ]]; } && ! rocknix_package_sources_ready; then
+  [[ " ${packages[*]} " == *" thorch-mangohud "* ]]; } && ! rocknix_package_sources_ready; } ||
+  { [[ " ${packages[*]} " == *" thorch-firmware-rocknix "* ]] &&
+    [[ ! -f "${root}/${THORCH_FIRMWARE_DIR}/THORCH_FIRMWARE_PROVENANCE" ]]; }; then
   log "syncing public ROCKNIX SM8550 package sources"
-  "${script_dir}/sync-rocknix-sources.sh"
+  "${script_dir}/sync-rocknix-sources.sh" "${source_sync_args[@]}"
 fi
 if [[ " ${packages[*]} " == *" linux-thorch "* || " ${packages[*]} " == *" thorch-firmware-rocknix "* ]]; then
   validate_rocknix_kernel_provenance "${root}/${THORCH_ROCKNIX_KERNEL_DIR}"
