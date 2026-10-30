@@ -85,7 +85,7 @@ jobs:
               for checkout in /work /work/kernel-src /work/tme-src; do
                 git config --global --add safe.directory "$checkout"
               done
-              bash scripts/sync-rocknix-kernel.sh --skip-runtime-import
+              bash scripts/sync-rocknix-kernel.sh
             '
       - name: Build and validate production-default custom image
         run: |

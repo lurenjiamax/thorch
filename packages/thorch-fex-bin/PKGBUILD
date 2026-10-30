@@ -2,7 +2,7 @@
 
 pkgname=thorch-fex-bin
 pkgver=2607
-pkgrel=6
+pkgrel=7
 pkgdesc='FEX-2607 binary runtime imported from the pinned ROCKNIX nightly for Thorch on AArch64'
 arch=(aarch64)
 url='https://github.com/FEX-Emu/FEX'
@@ -60,16 +60,8 @@ Run from the repository root:
 EOF
     exit 1
   fi
-  if [[ ! -f "${_runtime_dir}/usr/share/fex-emu/libvulkan_freedreno.so" ]]; then
-    cat >&2 <<EOF
-Missing imported ROCKNIX FEX guest Vulkan driver at:
-  ${_runtime_dir}/usr/share/fex-emu/libvulkan_freedreno.so
-
-Run from the repository root:
-  ./scripts/sync-rocknix-kernel.sh
-EOF
-    exit 1
-  fi
+  [[ -d "${_runtime_dir}/usr/lib/fex-emu/HostThunks" ]] || return 1
+  [[ -d "${_runtime_dir}/usr/share/fex-emu/GuestThunks" ]] || return 1
 
   for bin in \
     FEX \
