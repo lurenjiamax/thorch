@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ -f /usr/share/thorch/rocknix/loader/entries/rocknix.conf ]]; then
+  native_debug_config="${THORCH_BOOT_DEBUG_CONFIG:-/etc/thorch/boot-debug.conf}"
+  # shellcheck disable=SC1090
+  [[ ! -r "$native_debug_config" ]] || source "$native_debug_config"
+  export THORCH_BOOT_DEBUG="${THORCH_BOOT_DEBUG:-0}"
+  export THORCH_SCM_DUMP="${THORCH_SCM_DUMP:-off}"
+  exec python3 /usr/lib/thorch/native_boot.py publish "$@"
+fi
 
 usage() {
   cat >&2 <<'EOF'

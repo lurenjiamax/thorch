@@ -694,6 +694,10 @@ install -Dm644 "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/Image" \
 run_rootfs "mkinitcpio -P"
 install -Dm644 "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/KERNEL" \
   "${rootfs_dir}/usr/share/thorch/rocknix/KERNEL"
+for entry in dtbs loader; do
+  [[ ! -d "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/${entry}" ]] || \
+    cp -a "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/${entry}" "${rootfs_dir}/usr/share/thorch/rocknix/"
+done
 run_rootfs "thorch-rebuild-abl-kernel --root-uuid ${root_uuid} --rootfstype ${root_fstype}"
 rm -f "${rootfs_dir}/boot/Image"
 run_rootfs "thorch-check-boot --root-uuid ${root_uuid}"

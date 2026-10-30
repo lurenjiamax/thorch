@@ -388,6 +388,7 @@ if [[ "${#mounts[@]}" -eq 0 ]]; then
       ::/KERNEL ::/SYSTEM "${userspace_boot_tree}/"; then
     die "unable to extract ROCKNIX boot files from ${image}"
   fi
+  mcopy -s -o -i "${image}@@${partition_offset}" ::/dtbs ::/loader "${userspace_boot_tree}/" || true
   mounts+=("${userspace_boot_tree}")
 fi
 
@@ -431,9 +432,13 @@ normalize_immutable_rocknix_image() {
   [[ -f "${boot_dir}/KERNEL" && -f "${boot_dir}/SYSTEM" ]] || return 1
 
   work_tree="$(mktemp -d "${cache_abs}/thorch-rocknix-tree.XXXXXX")"
-  extract_android_boot_kernel \
-    "${boot_dir}/KERNEL" \
-    "${work_tree}/boot/Image"
+  if [[ -f "${boot_dir}/loader/entries/rocknix.conf" && -d "${boot_dir}/dtbs" ]]; then
+    install -Dm644 "${boot_dir}/KERNEL" "${work_tree}/boot/Image"
+    cp -a "${boot_dir}/dtbs" "${boot_dir}/loader" "${work_tree}/boot/"
+  else
+    extract_android_boot_kernel \
+      "${boot_dir}/KERNEL" "${work_tree}/boot/Image" || return 1
+  fi
   install -Dm644 "${boot_dir}/KERNEL" "${work_tree}/boot/KERNEL"
 
   log "extracting ROCKNIX kernel modules and runtime files from SYSTEM"

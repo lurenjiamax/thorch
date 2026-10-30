@@ -9,7 +9,6 @@ source_dir="${THORCH_KERNEL_SOURCE_DIR:-$root/kernel-src}"
 build_dir="${THORCH_KERNEL_BUILD_DIR:-$root/build/kernel-build}"
 config="${THORCH_KERNEL_CONFIG:-$source_dir/arch/arm64/configs/thorch_recovered_defconfig}"
 dest="${THORCH_ROCKNIX_KERNEL_DIR}"
-template=""
 jobs="${THORCH_KERNEL_JOBS:-$(nproc)}"
 cross_compile="${THORCH_KERNEL_CROSS_COMPILE-aarch64-linux-gnu-}"
 if [[ "$(uname -m)" == aarch64 && -z "${THORCH_KERNEL_CROSS_COMPILE+x}" ]]; then
@@ -23,7 +22,6 @@ while (( $# )); do
     --build-dir) build_dir="$2"; shift 2 ;;
     --config) config="$2"; shift 2 ;;
     --dest) dest="$2"; shift 2 ;;
-    --template) template="$2"; shift 2 ;;
     --jobs) jobs="$2"; shift 2 ;;
     --cross-compile) cross_compile="$2"; shift 2 ;;
     --prepare-only) prepare_only=1; shift ;;
@@ -31,7 +29,7 @@ while (( $# )); do
     --no-fetch|--skip-kernel-patches) shift ;; # Always source-preserving now.
     --help|-h)
       echo 'Compile committed kernel-src without downloading or editing source.'
-      echo 'Options: --source-dir --build-dir --config --dest --template --jobs'
+      echo 'Options: --source-dir --build-dir --config --dest --jobs'
       echo '         --cross-compile --prepare-only --reuse-build-dir'
       exit 0 ;;
     *) die "Unsupported option $1; source acquisition/patching is a separate Git operation" ;;
@@ -61,13 +59,13 @@ args=(-C "$source_dir" O="$build_dir" ARCH=arm64 CROSS_COMPILE="$cross_compile" 
 make "${args[@]}" olddefconfig syncconfig
 [[ "$(make -s "${args[@]}" kernelrelease)" == "$release" ]] || die 'Kernel release mismatch'
 (( prepare_only )) && exit 0
+[[ -s "$dest/boot/loader/entries/rocknix.conf" ]] || \
+  die 'Import the current official ROCKNIX loader configuration before building'
 mapfile -t targets < <(find "$source_dir/arch/arm64/boot/dts/qcom" -maxdepth 1 \
   -name 'qcs8550-*.dts' ! -name 'qcs8550-aim300-aiot.dts' -printf 'qcom/%f\n' | sort)
 (( ${#targets[@]} )) || die 'Missing committed SM8550 DTS sources'
 dtbs=()
 for target in "${targets[@]}"; do dtbs+=("${target%.dts}.dtb"); done
-template="${template:-$dest/boot/KERNEL}"
-[[ -s "$template" ]] || die 'Supply a known-good Android boot template'
 make "${args[@]}" -j"$jobs" DTC_FLAGS=-@ Image modules "${dtbs[@]}"
 stage="$build_dir/modules-stage"
 mkdir -p "$stage"
@@ -75,24 +73,19 @@ make "${args[@]}" INSTALL_MOD_PATH="$stage" INSTALL_MOD_STRIP=1 modules_install
 paths=()
 for dtb in "${dtbs[@]}"; do paths+=("$build_dir/arch/arm64/boot/dts/$dtb"); done
 boot_tool="$root/packages/thorch-bsp/payload/usr/lib/thorch/boot_image.py"
-userdata_args=()
-if [[ "${THORCH_ANDROID_USERDATA:-0}" == 1 ]]; then
-  userdata_args=(--append-cmdline qcom_ice.use_wrapped_keys=1
-                 --append-cmdline qcom_ice.android_legacy_hwkm=1)
-fi
-python3 "$boot_tool" replace-kernel "$template" "$build_dir/arch/arm64/boot/Image" \
-  "$build_dir/thorch-boot.img" "${paths[@]}" "${userdata_args[@]}"
-python3 "$boot_tool" validate "$build_dir/thorch-boot.img" \
-  --require-symbols --require-thor --forbid-aim300
 python3 "$boot_tool" check-config "$build_dir/arch/arm64/boot/Image" \
   "$root/packages/linux-thorch/waydroid-kernel.config"
 mkdir -p "$dest/boot" "$dest/usr/lib/modules"
 rsync -a "$stage/lib/modules/$release" "$dest/usr/lib/modules/"
 cp "$build_dir/arch/arm64/boot/Image" "$dest/boot/Image"
-cp "$build_dir/thorch-boot.img" "$dest/boot/KERNEL"
+cp "$build_dir/arch/arm64/boot/Image" "$dest/boot/KERNEL"
+mkdir -p "$dest/boot/dtbs"
+cp "${paths[@]}" "$dest/boot/dtbs/"
 {
   printf 'THORCH_KERNEL_SOURCE=maintained-git-checkout\nTHORCH_KERNEL_RELEASE=%s\n' "$release"
   printf 'THORCH_KERNEL_RESOLVED_REF=%s\n' "$(git -C "$source_dir" rev-parse HEAD)"
   sha256sum "$build_dir/.config" "$dest/boot/Image" "$dest/boot/KERNEL"
-} > "$dest/PROVENANCE"
+  sha256sum "$dest/boot/loader/entries/rocknix.conf" "$dest/boot/dtbs/qcs8550-ayn-thor.dtb"
+} > "$dest/KERNEL-PROVENANCE"
+cat "$dest/KERNEL-PROVENANCE" >> "$dest/PROVENANCE"
 log "Built $release from committed source; NOT deployed"

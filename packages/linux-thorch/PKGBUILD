@@ -2,7 +2,7 @@
 
 pkgname=linux-thorch
 pkgver=7.1.2
-pkgrel=38
+pkgrel=39
 pkgdesc='Thorch-packaged ROCKNIX Linux kernel artifacts for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
@@ -96,6 +96,9 @@ EOF
   verify_waydroid_module_tree "${pkgdir}/usr/lib/modules/${kernver}"
 
   install -Dm644 "${kernel_boot}" "${pkgdir}/usr/share/thorch/rocknix/KERNEL"
+  for entry in dtbs loader; do
+    [[ ! -d "${_kernel_dir}/boot/${entry}" ]] || cp -a "${_kernel_dir}/boot/${entry}" "${pkgdir}/usr/share/thorch/rocknix/"
+  done
   if [[ -f "${_kernel_dir}/PROVENANCE" ]]; then
     install -Dm644 "${_kernel_dir}/PROVENANCE" "${pkgdir}/usr/share/licenses/${pkgname}/ROCKNIX-KERNEL-PROVENANCE"
   fi

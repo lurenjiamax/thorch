@@ -1,7 +1,7 @@
 # Maintainer: Thorch contributors
 pkgname=linux-thorch-headers
 pkgver=7.1.2
-pkgrel=38
+pkgrel=39
 pkgdesc='Matching ARM64 external-module build environment for linux-thorch'
 arch=(aarch64)
 license=(GPL-2.0-only)

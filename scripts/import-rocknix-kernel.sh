@@ -194,6 +194,9 @@ if [[ -n "${firmware_root}" && -d "${firmware_root}" ]]; then
   rsync -a "${firmware_root}/" "${dest_abs}/usr/lib/firmware/"
 fi
 install -Dm644 "${kernel_boot}" "${dest_abs}/boot/KERNEL"
+for entry in dtbs loader; do
+  [[ ! -d "${boot_dir_abs}/${entry}" ]] || cp -a "${boot_dir_abs}/${entry}" "${dest_abs}/boot/"
+done
 
 {
   printf 'ROCKNIX_REPO=%s\n' "${ROCKNIX_REPO}"

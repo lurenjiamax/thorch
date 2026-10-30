@@ -80,10 +80,14 @@ check_file() {
 }
 
 check_file "Thorch initramfs" "${initramfs_path}"
-check_file "Android boot image KERNEL" "${kernel_path}"
+check_file "kernel payload KERNEL" "${kernel_path}"
 check_file "canonical boot-image validator" "${boot_tool}"
 
 if [[ -f "${kernel_path}" && -f "${boot_tool}" && -n "${root_uuid}" ]]; then
+  if [[ -f "${boot_dir}/loader/entries/thorch.conf" ]]; then
+    exec python3 "${script_dir}/../lib/thorch/native_boot.py" validate \
+      --boot-dir "${boot_dir}" --root-uuid "${root_uuid}"
+  fi
   template_args=()
   template="${boot_dir%/boot}/usr/share/thorch/rocknix/KERNEL"
   if [[ -f "${template}" ]]; then
