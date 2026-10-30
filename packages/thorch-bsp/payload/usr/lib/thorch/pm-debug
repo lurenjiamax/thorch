@@ -34,7 +34,7 @@ case "${1:-}" in
     }
     # ExecStop is not run when ExecStart fails. Do not leave a failed service
     # recording or holding its filters, which would also prevent retrying.
-    trap 'printf 0 > "$record"; printf "\n" > "$trace/set_ftrace_filter"; printf "%s\n" "file fs/sync.c -p" > "$debug"; rm -f /run/modprobe.d/thorch-pm-debug.conf' EXIT
+    trap 'printf 0 > "$record"; printf "\n" > "$trace/set_ftrace_filter"; printf "%s\n" "file fs/sync.c -p" "format \"PMDIAG\" -p" > "$debug"; rm -f /run/modprobe.d/thorch-pm-debug.conf' EXIT
     # This Kconfig default is hidden without EXPERT. Set the actual pstore
     # dump budget through its supported remount interface instead.
     mount -o remount,kmsg_bytes=262144 /sys/fs/pstore
@@ -43,7 +43,7 @@ case "${1:-}" in
     printf '%s\n' 'tmecom_process_request:mod:aynthor_tme' \
       'qmp_send_data:mod:aynthor_qmp' 'qmp_thread_irq_handler:mod:aynthor_qmp' \
       'qmp_notify_timeout:mod:aynthor_qmp' >> "$trace/set_ftrace_filter"
-    printf '%s\n' 'file fs/sync.c +p' > "$debug"
+    printf '%s\n' 'file fs/sync.c +p' 'format "PMDIAG" +p' > "$debug"
     install -d /run/modprobe.d
     ln -s /usr/share/thorch/pm-debug-modprobe.conf /run/modprobe.d/thorch-pm-debug.conf
     if grep -q '^aynthor_tme ' /proc/modules; then
@@ -63,7 +63,7 @@ case "${1:-}" in
   stop)
     [[ ! -w "$record" ]] || printf 0 > "$record"
     printf '\n' > "$trace/set_ftrace_filter"
-    printf '%s\n' 'file fs/sync.c -p' > "$debug"
+    printf '%s\n' 'file fs/sync.c -p' 'format "PMDIAG" -p' > "$debug"
     if grep -q '^aynthor_tme ' /proc/modules; then
       printf '%s\n' 'module aynthor_tme -p' > "$debug"
     fi
