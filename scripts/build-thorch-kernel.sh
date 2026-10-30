@@ -76,7 +76,10 @@ boot_tool="$root/packages/thorch-bsp/payload/usr/lib/thorch/boot_image.py"
 python3 "$boot_tool" check-config "$build_dir/arch/arm64/boot/Image" \
   "$root/packages/linux-thorch/waydroid-kernel.config"
 mkdir -p "$dest/boot" "$dest/usr/lib/modules"
-rsync -a "$stage/lib/modules/$release" "$dest/usr/lib/modules/"
+# Replace imported upstream modules with exactly this build's release. The
+# staging directory may also retain earlier incremental-build releases.
+rsync -a --delete --delete-excluded --include="/$release/***" --exclude='*' \
+  "$stage/lib/modules/" "$dest/usr/lib/modules/"
 cp "$build_dir/arch/arm64/boot/Image" "$dest/boot/Image"
 cp "$build_dir/arch/arm64/boot/Image" "$dest/boot/KERNEL"
 mkdir -p "$dest/boot/dtbs"
