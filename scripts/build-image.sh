@@ -82,6 +82,16 @@ else
 fi
 [[ -n "${image_package_selection}" ]] || die "image package profile is empty"
 mapfile -t image_packages <<< "${image_package_selection}"
+# Custom builds may supply separately built packages from maintained component
+# repositories. They must already be present in the verified local repository.
+if [[ -n "${THORCH_IMAGE_EXTRA_PACKAGES:-}" ]]; then
+  (( skip_package_build )) || die 'Extra source-built packages require --skip-package-build'
+  read -r -a extra_packages <<< "$THORCH_IMAGE_EXTRA_PACKAGES"
+  for package in "${extra_packages[@]}"; do
+    [[ "$package" =~ ^[a-z0-9][a-z0-9@._+-]*$ ]] || die "Invalid extra package: $package"
+    image_packages+=("$package")
+  done
+fi
 cache_tmpfs_size_bytes=
 root_fstype="${THORCH_ROOT_FSTYPE,,}"
 root_mount_options=

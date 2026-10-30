@@ -1,0 +1,49 @@
+# Maintainer: Thorch contributors
+pkgname=linux-thorch-headers
+pkgver=7.1.2
+pkgrel=38
+pkgdesc='Matching ARM64 external-module build environment for linux-thorch'
+arch=(aarch64)
+license=(GPL-2.0-only)
+depends=("linux-thorch=${pkgver}-${pkgrel}" gcc make bc libelf pahole python)
+options=('!strip' '!debug')
+
+package() {
+  local kernel_source="${THORCH_KERNEL_SOURCE_DIR:?Provide maintained kernel source}"
+  local build="${THORCH_KERNEL_BUILD_DIR:?Provide completed native ARM64 build}"
+  local release="${pkgver}-thorch${pkgrel}"
+  local dest="$pkgdir/usr/lib/modules/$release/build"
+  [[ "$(cat "$build/include/config/kernel.release")" == "$release" ]] || return 1
+  [[ -s "$build/Module.symvers" ]] || return 1
+  # Native host utilities are required by modules built on the device.
+  readelf -h "$build/scripts/basic/fixdep" | grep -q 'Machine:.*AArch64' || {
+    echo 'Headers must be packaged from a native ARM64 kernel build' >&2
+    return 1
+  }
+  install -d "$dest/arch/arm64" "$dest/scripts"
+  cp -a "$kernel_source/include" "$dest/"
+  cp -a "$kernel_source/scripts/." "$dest/scripts/"
+  cp -a "$kernel_source/arch/arm64/include" "$dest/arch/arm64/"
+  install -m644 "$kernel_source/Makefile" "$kernel_source/Kconfig" "$dest/"
+  install -m644 "$kernel_source/arch/arm64/Makefile" "$dest/arch/arm64/"
+  # Overlay generated headers and native build utilities, not the O= wrapper
+  # Makefile which points at a CI-only source path.
+  cp -a "$build/include/." "$dest/include/"
+  cp -a "$build/scripts/." "$dest/scripts/"
+  cp -a "$build/arch/arm64/include/." "$dest/arch/arm64/include/"
+  install -m644 "$build/.config" "$build/Module.symvers" "$dest/"
+  [[ ! -f "$build/vmlinux.symvers" ]] || install -m644 "$build/vmlinux.symvers" "$dest/"
+  # Kernel build rules inspect these directories even for external modules.
+  install -d "$dest/tools" "$dest/arch/arm64/kernel"
+  [[ ! -d "$build/tools" ]] || cp -a "$build/tools/." "$dest/tools/"
+  # Kernel 7.1 external-module preparation writes an O= wrapper Makefile.
+  # Keep the real Makefile separate so this can never overwrite itself.
+  install -d "$dest/.source"
+  mv "$dest/Makefile" "$dest/.source/Makefile"
+  local entry
+  for entry in include scripts arch tools Kconfig; do
+    ln -s "../$entry" "$dest/.source/$entry"
+  done
+  install -m644 "$startdir/Makefile" "$dest/Makefile"
+  ln -s build/.source "$pkgdir/usr/lib/modules/$release/source"
+}

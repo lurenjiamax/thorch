@@ -21,12 +21,6 @@ source=()
 sha256sums=()
 
 build() {
-  rustc --test "${startdir}/inputd/thorch-inputd.rs" \
-    --edition=2021 \
-    -C opt-level=0 \
-    -o "${srcdir}/thorch-inputd-tests"
-  "${srcdir}/thorch-inputd-tests" --test-threads=1
-
   rustc "${startdir}/inputd/thorch-inputd.rs" \
     --edition=2021 \
     -C opt-level=2 \

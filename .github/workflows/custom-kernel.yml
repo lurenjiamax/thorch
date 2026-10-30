@@ -1,4 +1,4 @@
-name: Custom Thor Kernel Package
+name: Custom Thor Image
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
     needs: checks
     if: github.ref == 'refs/heads/feat/thor-custom-kernel'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 360
+    timeout-minutes: 720
     env:
       GH_TOKEN: ${{ github.token }}
       THORCH_DOCKER_IMAGE: thorch-custom-builder:local
@@ -34,9 +34,8 @@ jobs:
       - name: Resolve maintained source pins
         id: sources
         run: |
-          source source-checkouts.conf
-          echo "kernel=$KERNEL_SOURCE_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "tme=$TME_SOURCE_COMMIT" >> "$GITHUB_OUTPUT"
+          python3 scripts/resolve-custom-sources.py \
+            --output output/custom-sources.json --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: lurenjiamax/linux-thorch
@@ -47,6 +46,31 @@ jobs:
           repository: lurenjiamax/thorch-tme
           ref: ${{ steps.sources.outputs.tme }}
           path: tme-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/InputPlumber
+          ref: ${{ steps.sources.outputs.inputplumber }}
+          path: inputplumber-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/thorch-motion
+          ref: ${{ steps.sources.outputs.motion }}
+          path: motion-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/thorch-dump-debug
+          ref: ${{ steps.sources.outputs.dump }}
+          path: dump-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/hexagonrpc
+          ref: ${{ steps.sources.outputs.hexagonrpc }}
+          path: hexagonrpc-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/libssc
+          ref: ${{ steps.sources.outputs.libssc }}
+          path: libssc-src
       - name: Build native ARM64 builder
         run: make docker-image-build
       - name: Build pinned source kernel
@@ -63,27 +87,26 @@ jobs:
               done
               bash scripts/sync-rocknix-kernel.sh --skip-runtime-import
             '
-      - name: Package and validate kernel, modules and BSP upgrade hooks
+      - name: Build and validate production-default custom image
         run: |
           set -euo pipefail
-          docker run --rm --env GITHUB_SHA --volume "$PWD:/work" --workdir /work \
+          docker run --privileged --rm --env GITHUB_SHA --volume "$PWD:/work" --workdir /work \
             "$THORCH_DOCKER_IMAGE" bash -lc '
               set -euo pipefail
               for checkout in /work /work/kernel-src /work/tme-src; do
                 git config --global --add safe.directory "$checkout"
               done
-              bash scripts/package-custom-kernel.sh
+               bash scripts/build-custom-image.sh
             '
           sudo chown -R "$(id -u):$(id -g)" output
-      - name: Publish experimental kernel prerelease
+      - name: Publish custom image and matching package set
         run: |
           set -euo pipefail
           version=$(cat output/custom-kernel/version.txt)
-          tag="custom-kernel-${version}-${GITHUB_SHA:0:12}"
-          gh release create "$tag" output/custom-kernel/*.pkg.tar.zst \
-            output/custom-kernel/SHA256SUMS output/custom-kernel/INSTALL.md \
-            output/custom-kernel/PROVENANCE \
-            output/custom-kernel/TME-PROVENANCE \
+          tag="custom-image-${version}-${GITHUB_RUN_ID}"
+          gh release create "$tag" output/custom-image/*.pkg.tar.zst \
+            output/custom-image/*.img.zst output/custom-image/SHA256SUMS \
+            output/custom-image/SOURCES.json \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "Experimental AYN Thor SM8550 kernel ${version}" \
+            --title "AYN Thor custom image ${version}" \
             --notes-file output/custom-kernel/INSTALL.md
