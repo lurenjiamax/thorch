@@ -107,6 +107,8 @@ jobs:
           gh release create "$tag" output/custom-image/*.pkg.tar.zst \
             output/custom-image/*.img.zst output/custom-image/SHA256SUMS \
             output/custom-image/SOURCES.json \
+            output/custom-image/PROVENANCE output/custom-image/TME-PROVENANCE \
+            output/custom-image/INSTALL.md \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "AYN Thor custom image ${version}" \
-            --notes-file output/custom-kernel/INSTALL.md
+            --notes-file output/custom-image/INSTALL.md

@@ -83,5 +83,7 @@ bash scripts/check-thorch-image.sh "$root/output/thorch-arch-aarch64.img"
 # Optional diagnostics is a separate release asset, never an image package.
 package "$root/dump-src/packaging" THORCH_DUMP_MODULE="$work/dump-module/thorch-dump-watchdog.ko"
 cp output/custom-sources.json "$out/SOURCES.json"
+cp output/custom-kernel/PROVENANCE output/custom-kernel/TME-PROVENANCE "$out/"
+cp docs/custom-image-install.md "$out/INSTALL.md"
 zstd -T0 -10 -f output/thorch-arch-aarch64.img -o "$out/thorch-custom-aarch64.img.zst"
-(cd "$out"; sha256sum ./*.pkg.tar.zst ./*.img.zst SOURCES.json > SHA256SUMS)
+(cd "$out"; sha256sum ./*.pkg.tar.zst ./*.img.zst SOURCES.json PROVENANCE TME-PROVENANCE INSTALL.md > SHA256SUMS)
