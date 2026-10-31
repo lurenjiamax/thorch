@@ -2,12 +2,12 @@
 
 pkgname=linux-thorch
 pkgver=7.1.2
-pkgrel=16
+pkgrel=39
 pkgdesc='Thorch-packaged ROCKNIX Linux kernel artifacts for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
 license=(GPL-2.0-only)
-depends=(coreutils kmod mkinitcpio 'thorch-boot-bootstrap-ready>=1-1' 'thorch-bsp>=1-27')
+depends=(coreutils kmod mkinitcpio 'thorch-boot-bootstrap-ready>=1-1' 'thorch-bsp>=1-43')
 makedepends=(python)
 provides=("linux=${pkgver}" "linux-aarch64=${pkgver}")
 conflicts=(linux linux-aarch64)
@@ -20,7 +20,7 @@ verify_waydroid_kernel_config() {
   local image="$1"
 
   [[ "${THORCH_WAYDROID_KERNEL_REQUIRED:-1}" != "0" ]] || return 0
-  if ! /usr/lib/thorch/boot_image.py check-config \
+  if ! "${THORCH_BOOT_IMAGE_TOOL:-/usr/lib/thorch/boot_image.py}" check-config \
       "${image}" "${startdir}/waydroid-kernel.config"; then
     printf '%s\n' \
       'Rebuild/import a kernel with Binder IPC and BinderFS enabled, or set' \
@@ -34,6 +34,7 @@ verify_waydroid_module_tree() {
   local missing=()
   local module
   local required_modules=(
+    kernel/drivers/md/dm-default-key.ko
     kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko
     kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko
     kernel/net/netfilter/nf_conntrack.ko
@@ -48,9 +49,9 @@ verify_waydroid_module_tree() {
   done
 
   if [[ "${#missing[@]}" -gt 0 ]]; then
-    printf 'linux-thorch is missing Waydroid network module support:\n' >&2
+    printf 'linux-thorch is missing required kernel modules:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
-    printf 'Rebuild/import a kernel module tree with nftables NAT support.\n' >&2
+    printf 'Rebuild/import a kernel module tree with Android metadata and nftables NAT support.\n' >&2
     exit 1
   fi
 }
@@ -79,15 +80,11 @@ EOF
 
   verify_waydroid_kernel_config "${image}"
 
-  kernver="$(find "${modules_root}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | head -n1)"
-  [[ -n "${kernver}" ]] || {
-    echo "unable to determine kernel release from ${modules_root}" >&2
-    exit 1
-  }
   expected_kernver="${pkgver}-thorch${pkgrel}"
-  [[ "${kernver}" == "${expected_kernver}" ]] || {
-    printf 'linux-thorch kernel release is %s, expected %s; rebuild the kernel after every package release bump\n' \
-      "${kernver}" "${expected_kernver}" >&2
+  kernver="${expected_kernver}"
+  [[ -d "${modules_root}/${kernver}" ]] || {
+    printf 'missing expected kernel modules %s; rebuild after every package release bump\n' \
+      "${kernver}" >&2
     exit 1
   }
 
@@ -99,6 +96,9 @@ EOF
   verify_waydroid_module_tree "${pkgdir}/usr/lib/modules/${kernver}"
 
   install -Dm644 "${kernel_boot}" "${pkgdir}/usr/share/thorch/rocknix/KERNEL"
+  for entry in dtbs loader; do
+    [[ ! -d "${_kernel_dir}/boot/${entry}" ]] || cp -a "${_kernel_dir}/boot/${entry}" "${pkgdir}/usr/share/thorch/rocknix/"
+  done
   if [[ -f "${_kernel_dir}/PROVENANCE" ]]; then
     install -Dm644 "${_kernel_dir}/PROVENANCE" "${pkgdir}/usr/share/licenses/${pkgname}/ROCKNIX-KERNEL-PROVENANCE"
   fi
