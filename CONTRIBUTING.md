@@ -57,3 +57,12 @@ make docker-nightly
 - Do not add proprietary firmware or client payloads to the repository.
 - Keep behavior in `scripts/`; add Make targets only as short entry-point
   aliases.
+
+## Publishing
+
+Run the release audit, inspect the packaged boot image with the same validator
+used on the device, and verify the complete pacman upgrade and reboot before
+claiming hardware acceptance. Keep rootfs credentials, private keys and vendor
+runtime collections out of public artifacts. Publish packages/images with
+checksums and machine-readable input provenance; keep chronological experiment
+logs outside user documentation.

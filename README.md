@@ -1,5 +1,37 @@
 # Thorch
 
+## Thor vibration and sensors
+
+- [Vibration setup](docs/thor-vibration.md): required kernel/InputPlumber
+  repositories and packages, Thor voltage/LRA correction, controls and checks.
+- [Accelerometer and gyroscope setup](docs/thor-sensors.md): runtime/software
+  dependencies, device-owned firmware and calibration import, SSC verification
+  and motion-capable controller output for games.
+
+These are experimental Thorch/Arch Linux ARM procedures. Sensor provisioning
+requires private files from your own device; public packages alone are
+insufficient. Neither guide claims complete suspend/resume support.
+
+## Custom Kernel Branch: Android Userdata and UFS Gear 5
+
+This experimental branch adds the following changes to the ROCKNIX-derived
+Linux 7.1.2 kernel. It is not an official Thorch or ROCKNIX release.
+
+- Android-compatible `dm-default-key` as a module, with block/fscrypt/F2FS
+  integration to avoid applying metadata encryption twice to encrypted files.
+- Opt-in Qualcomm legacy SCM and Thor HWKM-v2/TME support for original Android
+  hardware-wrapped keys, including initialization-time keyslot/BIST guards.
+- F2FS quota-v2 module support for Android userdata mounts.
+- An SM8550-only candidate correction mapping the maximum 300 MHz UniPro OPP
+  to UFS Gear 5, retaining the negotiated device maximum limit.
+
+See [kernel installation and recovery](docs/custom-kernel-install.md) and
+[Android userdata mounting](docs/android-userdata-mount.md).
+The kernel does not include a production unlock daemon, proprietary KeyMint
+runtime, device keys, recovery backups, or prebuilt boot images. Original-key
+mounting requires a separately provisioned, device-specific experimental
+backend; installing this kernel alone does not unlock Android userdata.
+
 Thorch is an experimental Arch Linux ARM image for the AYN Thor, built on top of
 public ROCKNIX work. It syncs ROCKNIX's SM8550 kernel recipe, patch stack, Thor
 DTS overlays, firmware, runtime graphics pieces, FEX assets, device
@@ -241,7 +273,7 @@ with `python3 scripts/package-manifest.py profile image --format space`.
 Override `THORCH_IMAGE_PACKAGES` when you need a custom image package set. See
 [`docs/package-maintenance.md`](docs/package-maintenance.md) for package input,
 version, and isolated-build rules. See
-[`docs/update-safety.md`](docs/update-safety.md) before testing package upgrades
+[`kernel installation and recovery`](docs/custom-kernel-install.md) before testing package upgrades
 on an installed system.
 
 `thorch-firstboot` starts a fullscreen QML onboarding flow on first login for
@@ -270,12 +302,9 @@ it retargets the tmpfs entry to that user's home and numeric UID/GID.
 `thorch-kde-defaults` pulls in Firefox and the core KDE desktop applications:
 Ark, Dolphin, Gwenview, Kate, KCalc, Konsole, Okular, and Spectacle.
 
-RGB controls are documented in [docs/rgb.md](docs/rgb.md), including static
-colors, battery-status mode, brightness, and temporary color application.
-
-Fan curve tuning is documented in [docs/fancontrol.md](docs/fancontrol.md),
-including the built-in quiet/moderate/aggressive profiles and custom
-temperature-to-PWM curves.
+Lighting and fan-curve user guides are maintained with
+[HandheldDash](https://github.com/lurenjiamax/HandheldDash).
+On Thor, its controls use the Thorch BSP userspace backend.
 
 ## First Boot Debug
 
