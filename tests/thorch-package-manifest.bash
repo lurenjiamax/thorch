@@ -41,6 +41,17 @@ done
 for package in "${release_packages[@]}"; do
   [[ " ${build_packages[*]} " == *" ${package} "* ]] ||
     fail "release package is missing from the build profile: ${package}"
+  # Experimental transport modules are release-only and never auto-loaded in
+  # an image. The dedicated kernel workflow builds and validates their ABI.
+  if [[ "${package}" == thorch-tme-modules ]]; then
+    grep -q 'scripts/build-tme-modules.py' "${root}/scripts/package-custom-kernel.sh" ||
+      fail "standalone TME release lacks its CI build"
+    grep -q 'modinfo -F vermagic' "${root}/packages/thorch-tme-modules/PKGBUILD" ||
+      fail "standalone TME release lacks kernel ABI validation"
+    [[ " ${image_packages[*]} " != *" ${package} "* ]] ||
+      fail "experimental TME transport must remain opt-in"
+    continue
+  fi
   [[ " ${image_packages[*]} " == *" ${package} "* ]] ||
     fail "release package is not exercised by image composition: ${package}"
 done

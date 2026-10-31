@@ -82,6 +82,16 @@ else
 fi
 [[ -n "${image_package_selection}" ]] || die "image package profile is empty"
 mapfile -t image_packages <<< "${image_package_selection}"
+# Custom builds may supply separately built packages from maintained component
+# repositories. They must already be present in the verified local repository.
+if [[ -n "${THORCH_IMAGE_EXTRA_PACKAGES:-}" ]]; then
+  (( skip_package_build )) || die 'Extra source-built packages require --skip-package-build'
+  read -r -a extra_packages <<< "$THORCH_IMAGE_EXTRA_PACKAGES"
+  for package in "${extra_packages[@]}"; do
+    [[ "$package" =~ ^[a-z0-9][a-z0-9@._+-]*$ ]] || die "Invalid extra package: $package"
+    image_packages+=("$package")
+  done
+fi
 cache_tmpfs_size_bytes=
 root_fstype="${THORCH_ROOT_FSTYPE,,}"
 root_mount_options=
@@ -684,6 +694,10 @@ install -Dm644 "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/Image" \
 run_rootfs "mkinitcpio -P"
 install -Dm644 "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/KERNEL" \
   "${rootfs_dir}/usr/share/thorch/rocknix/KERNEL"
+for entry in dtbs loader; do
+  [[ ! -d "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/${entry}" ]] || \
+    cp -a "${root}/${THORCH_ROCKNIX_KERNEL_DIR}/boot/${entry}" "${rootfs_dir}/usr/share/thorch/rocknix/"
+done
 run_rootfs "thorch-rebuild-abl-kernel --root-uuid ${root_uuid} --rootfstype ${root_fstype}"
 rm -f "${rootfs_dir}/boot/Image"
 run_rootfs "thorch-check-boot --root-uuid ${root_uuid}"

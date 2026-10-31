@@ -400,6 +400,7 @@ configure_chroot_resolver() {
 thorch_stock_firmware_packages() {
   printf '%s\n' \
     linux-firmware \
+    linux-firmware-amd \
     linux-firmware-amdgpu \
     linux-firmware-atheros \
     linux-firmware-broadcom \
@@ -416,6 +417,7 @@ thorch_stock_firmware_packages() {
     linux-firmware-qlogic \
     linux-firmware-radeon \
     linux-firmware-realtek \
+    linux-firmware-ti \
     linux-firmware-whence
 }
 

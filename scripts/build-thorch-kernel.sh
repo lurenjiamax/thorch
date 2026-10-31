@@ -1,544 +1,94 @@
 #!/usr/bin/env bash
+# Compile an existing maintained checkout; never fetch, reset or patch source.
 set -euo pipefail
-
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/common.sh
-source "${script_dir}/lib/common.sh"
+source "$script_dir/lib/common.sh"
 load_thorch_config
-
-usage() {
-  cat >&2 <<'EOF'
-usage: scripts/build-thorch-kernel.sh [options]
-
-Builds a Thorch-owned Thor kernel from ROCKNIX's public kernel recipe, applies
-the Thorch kernel feature fragment, installs the matching modules into
-vendor/rocknix-kernel, and repacks that directory's Android /KERNEL template
-with the new kernel and all SM8550 DTB payloads.
-
-This script expects scripts/sync-rocknix-kernel.sh or make kernel to have already
-imported the ROCKNIX image inputs. The kernel tree supplies firmware and the
-Android boot-image template that Thor's ABL accepts; the separate runtime tree
-supplies FEX and its guest driver. The source-built kernel and modules replace
-the imported kernel bits.
-
-Options:
-  --repo <url>              Kernel git repository.
-  --ref <ref>               Kernel branch/tag/commit.
-  --tarball-url <url>       Kernel source tarball. Set empty to use git.
-  --tarball-sha256 <sha>    Optional sha256 for the tarball.
-  --source-dir <dir>        Git checkout directory. Default: build/kernel-src.
-  --build-dir <dir>         Out-of-tree build directory. Default: build/kernel-build.
-  --config <file>           Base kernel .config. Default: ROCKNIX linux.aarch64.conf.
-  --fragment <file>         Required Thorch config fragment.
-  --patch-dir <dir>         ROCKNIX kernel patch directory. May be repeated.
-  --dts-dir <dir>           ROCKNIX DTS overlay directory.
-  --dts-patch-dir <dir>     DTS patch directory applied after DTS overlay copy. May be repeated.
-  --dest <dir>              Kernel artifact destination. Default: vendor/rocknix-kernel.
-  --template <file>         Android boot image template. Default: <dest>/boot/KERNEL.
-  --jobs <n>                Parallel make jobs. Default: nproc.
-  --cross-compile <prefix>  Cross compiler prefix. Default: aarch64-linux-gnu-.
-  --no-fetch                Use the existing source checkout without fetching.
-  --reuse-build-dir         Reuse the out-of-tree build directory for faster
-                            local/debug rebuilds. Default is a clean build dir.
-  --skip-kernel-patches     Assume the source checkout already has kernel
-                            patches applied. DTS overlays are still refreshed.
-EOF
-}
-
-path_abs() {
-  local path="$1"
-  if [[ "${path}" == /* ]]; then
-    abspath "${path}"
-  else
-    abspath "${root}/${path}"
-  fi
-}
-
 root="$(repo_root)"
-boot_tool="${root}/packages/thorch-bsp/payload/usr/lib/thorch/boot_image.py"
-[[ -f "${boot_tool}" ]] || die "missing canonical boot-image tool: ${boot_tool}"
-linux_pkgbuild="${root}/packages/linux-thorch/PKGBUILD"
-expected_kernel_release="$(linux_thorch_expected_kernel_release "${linux_pkgbuild}")"
-source_repo="${THORCH_KERNEL_REPO:-https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git}"
-source_ref="${THORCH_KERNEL_REF:-v7.1.2}"
-source_version="${source_ref#v}"
-[[ "${expected_kernel_release}" == "${source_version}"-thorch* ]] || \
-  die "linux-thorch expects ${expected_kernel_release}, but THORCH_KERNEL_REF resolves to ${source_version}"
-kernel_localversion="${expected_kernel_release#"${source_version}"}"
-source_major="${source_version%%.*}"
-tarball_url="${THORCH_KERNEL_TARBALL_URL:-https://www.kernel.org/pub/linux/kernel/v${source_major}.x/linux-${source_version}.tar.xz}"
-tarball_sha256="${THORCH_KERNEL_TARBALL_SHA256:-}"
-source_dir="${THORCH_KERNEL_SOURCE_DIR:-${THORCH_BUILD_DIR}/kernel-src}"
-build_dir="${THORCH_KERNEL_BUILD_DIR:-${THORCH_BUILD_DIR}/kernel-build}"
-base_config="${THORCH_KERNEL_CONFIG:-${THORCH_ROCKNIX_DIR}/linux/linux.aarch64.conf}"
-fragment="${THORCH_KERNEL_CONFIG_FRAGMENT:-packages/linux-thorch/waydroid-kernel.config}"
-read -r -a patch_dirs <<< "${THORCH_KERNEL_PATCH_DIRS:-${THORCH_ROCKNIX_DIR}/packages/linux/patches/mainline ${THORCH_ROCKNIX_DIR}/patches/linux ${THORCH_ROCKNIX_DIR}/packages/linux/patches/default ${THORCH_ROCKNIX_DIR}/packages/linux/patches/7.0 packages/linux-thorch/patches}"
-dts_dir="${THORCH_KERNEL_DTS_DIR:-${THORCH_ROCKNIX_DIR}/linux/dts}"
-read -r -a dts_patch_dirs <<< "${THORCH_KERNEL_DTS_PATCH_DIRS:-packages/linux-thorch/dts-patches}"
+source_dir="${THORCH_KERNEL_SOURCE_DIR:-$root/kernel-src}"
+build_dir="${THORCH_KERNEL_BUILD_DIR:-$root/build/kernel-build}"
+config="${THORCH_KERNEL_CONFIG:-$source_dir/arch/arm64/configs/thorch_recovered_defconfig}"
 dest="${THORCH_ROCKNIX_KERNEL_DIR}"
-template=""
 jobs="${THORCH_KERNEL_JOBS:-$(nproc)}"
-if [[ -n "${THORCH_KERNEL_CROSS_COMPILE+x}" ]]; then
-  cross_compile="${THORCH_KERNEL_CROSS_COMPILE}"
-elif [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then
+cross_compile="${THORCH_KERNEL_CROSS_COMPILE-aarch64-linux-gnu-}"
+if [[ "$(uname -m)" == aarch64 && -z "${THORCH_KERNEL_CROSS_COMPILE+x}" ]]; then
   cross_compile=""
-else
-  cross_compile="aarch64-linux-gnu-"
 fi
-fetch=1
-reuse_build_dir="${THORCH_KERNEL_REUSE_BUILD_DIR:-0}"
-skip_kernel_patches=0
-
-while [[ "$#" -gt 0 ]]; do
+prepare_only=0
+reuse=0
+while (( $# )); do
   case "$1" in
-    --repo)
-      source_repo="${2:-}"
-      [[ -n "${source_repo}" ]] || die "--repo requires a value"
-      shift 2
-      ;;
-    --ref)
-      source_ref="${2:-}"
-      [[ -n "${source_ref}" ]] || die "--ref requires a value"
-      shift 2
-      ;;
-    --tarball-url)
-      tarball_url="${2:-}"
-      shift 2
-      ;;
-    --tarball-sha256)
-      tarball_sha256="${2:-}"
-      [[ -n "${tarball_sha256}" ]] || die "--tarball-sha256 requires a value"
-      shift 2
-      ;;
-    --source-dir)
-      source_dir="${2:-}"
-      [[ -n "${source_dir}" ]] || die "--source-dir requires a value"
-      shift 2
-      ;;
-    --build-dir)
-      build_dir="${2:-}"
-      [[ -n "${build_dir}" ]] || die "--build-dir requires a value"
-      shift 2
-      ;;
-    --config)
-      base_config="${2:-}"
-      [[ -n "${base_config}" ]] || die "--config requires a value"
-      shift 2
-      ;;
-    --fragment)
-      fragment="${2:-}"
-      [[ -n "${fragment}" ]] || die "--fragment requires a value"
-      shift 2
-      ;;
-    --patch-dir)
-      [[ -n "${2:-}" ]] || die "--patch-dir requires a value"
-      patch_dirs+=("$2")
-      shift 2
-      ;;
-    --dts-dir)
-      dts_dir="${2:-}"
-      [[ -n "${dts_dir}" ]] || die "--dts-dir requires a value"
-      shift 2
-      ;;
-    --dts-patch-dir)
-      [[ -n "${2:-}" ]] || die "--dts-patch-dir requires a value"
-      dts_patch_dirs+=("$2")
-      shift 2
-      ;;
-    --dest)
-      dest="${2:-}"
-      [[ -n "${dest}" ]] || die "--dest requires a value"
-      shift 2
-      ;;
-    --template)
-      template="${2:-}"
-      [[ -n "${template}" ]] || die "--template requires a value"
-      shift 2
-      ;;
-    --jobs)
-      jobs="${2:-}"
-      [[ "${jobs}" =~ ^[0-9]+$ && "${jobs}" -gt 0 ]] || die "--jobs must be a positive integer"
-      shift 2
-      ;;
-    --cross-compile)
-      cross_compile="${2:-}"
-      [[ -n "${cross_compile}" ]] || die "--cross-compile requires a value"
-      shift 2
-      ;;
-    --no-fetch)
-      fetch=0
-      shift
-      ;;
-    --reuse-build-dir|--incremental)
-      reuse_build_dir=1
-      shift
-      ;;
-    --skip-kernel-patches)
-      skip_kernel_patches=1
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      usage
-      die "unknown argument: $1"
-      ;;
+    --source-dir) source_dir="$2"; shift 2 ;;
+    --build-dir) build_dir="$2"; shift 2 ;;
+    --config) config="$2"; shift 2 ;;
+    --dest) dest="$2"; shift 2 ;;
+    --jobs) jobs="$2"; shift 2 ;;
+    --cross-compile) cross_compile="$2"; shift 2 ;;
+    --prepare-only) prepare_only=1; shift ;;
+    --reuse-build-dir|--incremental) reuse=1; shift ;;
+    --no-fetch|--skip-kernel-patches) shift ;; # Always source-preserving now.
+    --help|-h)
+      echo 'Compile committed kernel-src without downloading or editing source.'
+      echo 'Options: --source-dir --build-dir --config --dest --jobs'
+      echo '         --cross-compile --prepare-only --reuse-build-dir'
+      exit 0 ;;
+    *) die "Unsupported option $1; source acquisition/patching is a separate Git operation" ;;
   esac
 done
-
-case "${reuse_build_dir}" in
-  0|1) ;;
-  *) die "THORCH_KERNEL_REUSE_BUILD_DIR must be 0 or 1" ;;
-esac
-
-source_abs="$(path_abs "${source_dir}")"
-build_abs="$(path_abs "${build_dir}")"
-config_abs="$(path_abs "${base_config}")"
-fragment_abs="$(path_abs "${fragment}")"
-dts_abs="$(path_abs "${dts_dir}")"
-dest_abs="$(path_abs "${dest}")"
-template="${template:-${dest_abs}/boot/KERNEL}"
-template_abs="$(path_abs "${template}")"
-
-if [[ -n "${tarball_url}" ]]; then
-  require_cmd curl depmod git gzip install make pahole patch python3 rsync sha256sum tar xz "${cross_compile}gcc"
-else
-  require_cmd depmod git gzip install make pahole patch python3 rsync sha256sum "${cross_compile}gcc"
+[[ "$source_dir" = /* ]] || source_dir="$root/$source_dir"
+[[ "$build_dir" = /* ]] || build_dir="$root/$build_dir"
+[[ "$config" = /* ]] || config="$root/$config"
+[[ "$dest" = /* ]] || dest="$root/$dest"
+source_dir="$(realpath "$source_dir")"
+build_dir="$(realpath -m "$build_dir")"
+dest="$(realpath -m "$dest")"
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || die 'Invalid job count'
+case "$build_dir/" in "$source_dir/"* ) die 'Build output must be outside source' ;; esac
+case "$source_dir/" in "$build_dir/"* ) die 'Source must be outside build output' ;; esac
+git -C "$source_dir" rev-parse --verify HEAD >/dev/null
+[[ -z "$(git -C "$source_dir" status --porcelain -uno)" ]] || die 'Commit kernel source changes before release build'
+[[ -f "$config" ]] || die "Missing committed kernel config: $config"
+release="$(linux_thorch_expected_kernel_release "$root/packages/linux-thorch/PKGBUILD")"
+mkdir -p "$build_dir"
+if (( !reuse )) || [[ ! -f "$build_dir/.config" ]]; then
+  cp "$config" "$build_dir/.config"
 fi
-
-[[ -f "${config_abs}" ]] || die "missing base kernel config: ${config_abs}"
-[[ -f "${fragment_abs}" ]] || die "missing Thorch kernel config fragment: ${fragment_abs}"
-[[ -d "${dts_abs}" ]] || die "missing ROCKNIX DTS overlay directory: ${dts_abs}"
-[[ -f "${template_abs}" ]] || die "missing Android boot template: ${template_abs}; run scripts/sync-rocknix-kernel.sh first"
-[[ -d "${dest_abs}/usr/lib/firmware" ]] || die "missing ROCKNIX firmware in ${dest_abs}; run scripts/sync-rocknix-kernel.sh first"
-
-if [[ -n "${tarball_url}" && "${fetch}" -eq 1 ]]; then
-  cache_dir="$(path_abs "${THORCH_BUILD_DIR}/cache/kernel")"
-  tarball_name="${tarball_url%%\?*}"
-  tarball_name="${tarball_name##*/}"
-  [[ -n "${tarball_name}" ]] || die "could not determine tarball filename from ${tarball_url}"
-  tarball_path="${cache_dir}/${tarball_name}"
-
-  install -d "${cache_dir}"
-  if [[ -f "${tarball_path}" ]] && tar -tf "${tarball_path}" >/dev/null 2>&1; then
-    log "using cached ROCKNIX kernel base tarball ${tarball_name}"
-  else
-    log "downloading ROCKNIX kernel base tarball ${tarball_name}"
-    curl -fL --continue-at - -o "${tarball_path}" "${tarball_url}"
-  fi
-  if [[ -n "${tarball_sha256}" ]]; then
-    printf '%s  %s\n' "${tarball_sha256}" "${tarball_path}" | sha256sum -c -
-  fi
-  case "${source_abs}" in
-    "${root}/${THORCH_BUILD_DIR}/"*) rm -rf "${source_abs}" ;;
-    *) [[ ! -e "${source_abs}" ]] || die "refusing to overwrite custom kernel source path: ${source_abs}" ;;
-  esac
-  install -d "${source_abs}"
-  log "extracting ROCKNIX kernel base tarball"
-  tar -xf "${tarball_path}" --strip-components=1 -C "${source_abs}"
-  git -C "${source_abs}" init -q
-  resolved_ref="${source_ref}"
-elif [[ ! -d "${source_abs}/.git" ]]; then
-  [[ "${fetch}" -eq 1 ]] || die "kernel source checkout is missing and --no-fetch was supplied: ${source_abs}"
-  if [[ -e "${source_abs}" ]]; then
-    case "${source_abs}" in
-      "${root}/${THORCH_BUILD_DIR}/"*) rm -rf "${source_abs}" ;;
-      *) die "kernel source path exists but is not a git checkout: ${source_abs}" ;;
-    esac
-  fi
-  install -d "$(dirname "${source_abs}")"
-  log "cloning ROCKNIX kernel base ${source_repo}"
-  git clone --filter=blob:none --no-checkout "${source_repo}" "${source_abs}"
-  resolved_ref=""
-elif [[ "${fetch}" -eq 1 ]]; then
-  log "fetching ROCKNIX kernel base ref ${source_ref}"
-  current_origin="$(git -C "${source_abs}" config --get remote.origin.url || true)"
-  [[ "${current_origin}" == "${source_repo}" ]] || die "kernel checkout origin is ${current_origin:-unset}, expected ${source_repo}; remove ${source_abs} or set THORCH_KERNEL_SOURCE_DIR"
-  git -C "${source_abs}" fetch --tags origin "${source_ref}"
-  git -C "${source_abs}" checkout --detach --force FETCH_HEAD
-  git -C "${source_abs}" reset --hard FETCH_HEAD >/dev/null
-  git -C "${source_abs}" clean -fdx >/dev/null
-  resolved_ref="$(git -C "${source_abs}" rev-parse HEAD)"
-else
-  log "using existing Thor kernel source checkout at ${source_abs}"
-  resolved_ref="$(git -C "${source_abs}" rev-parse --verify HEAD 2>/dev/null || printf '%s\n' "${source_ref}")"
-fi
-if [[ -z "${resolved_ref}" && "${fetch}" -eq 1 ]]; then
-  log "fetching ROCKNIX kernel base ref ${source_ref}"
-  current_origin="$(git -C "${source_abs}" config --get remote.origin.url || true)"
-  [[ "${current_origin}" == "${source_repo}" ]] || die "kernel checkout origin is ${current_origin:-unset}, expected ${source_repo}; remove ${source_abs} or set THORCH_KERNEL_SOURCE_DIR"
-  git -C "${source_abs}" fetch --tags origin "${source_ref}"
-  git -C "${source_abs}" checkout --detach --force FETCH_HEAD
-  git -C "${source_abs}" reset --hard FETCH_HEAD >/dev/null
-  git -C "${source_abs}" clean -fdx >/dev/null
-  resolved_ref="$(git -C "${source_abs}" rev-parse HEAD)"
-fi
-
-apply_patch_file() {
-  local patch_file="$1"
-
-  if git -C "${source_abs}" apply --check --whitespace=nowarn "${patch_file}" >/dev/null 2>&1; then
-    log "applying ROCKNIX kernel patch ${patch_file#"${root}/"}"
-    git -C "${source_abs}" apply --whitespace=nowarn "${patch_file}"
-  elif patch -d "${source_abs}" -p1 --dry-run --forward --batch < "${patch_file}" >/dev/null 2>&1; then
-    log "applying ROCKNIX kernel patch with fuzz ${patch_file#"${root}/"}"
-    patch -d "${source_abs}" -p1 --forward --batch < "${patch_file}" >/dev/null
-  elif git -C "${source_abs}" apply --reverse --check --whitespace=nowarn "${patch_file}" >/dev/null 2>&1; then
-    warn "ROCKNIX kernel patch is already applied, skipping: ${patch_file#"${root}/"}"
-  elif patch -d "${source_abs}" -p1 --dry-run --reverse --batch < "${patch_file}" >/dev/null 2>&1; then
-    warn "ROCKNIX kernel patch is already applied with fuzz, skipping: ${patch_file#"${root}/"}"
-  else
-    die "ROCKNIX kernel patch does not apply cleanly: ${patch_file}"
-  fi
-}
-
-apply_patch_dir() {
-  local patch_dir="$1" patch_abs patch_file
-
-  patch_abs="$(path_abs "${patch_dir}")"
-  if [[ ! -d "${patch_abs}" ]]; then
-    warn "ROCKNIX kernel patch directory missing, skipping: ${patch_abs}"
-    return 0
-  fi
-  while IFS= read -r patch_file; do
-    apply_patch_file "${patch_file}"
-  done < <(find "${patch_abs}" -maxdepth 1 -type f -name '*.patch' | LC_ALL=C sort)
-}
-
-kernel_input_digest() {
-  local input_dir input_abs input_file
-
-  {
-    printf 'source-ref=%s\n' "${source_ref}"
-    for input_dir in "${patch_dirs[@]}" "${dts_patch_dirs[@]}"; do
-      [[ -n "${input_dir}" ]] || continue
-      input_abs="$(path_abs "${input_dir}")"
-      printf 'patch-dir=%s\n' "${input_abs}"
-      [[ -d "${input_abs}" ]] || continue
-      while IFS= read -r input_file; do
-        printf 'patch-file=%s\n' "${input_file}"
-        sha256sum "${input_file}"
-      done < <(find "${input_abs}" -maxdepth 1 -type f -name '*.patch' | LC_ALL=C sort)
-    done
-
-    printf 'dts-dir=%s\n' "${dts_abs}"
-    while IFS= read -r input_file; do
-      printf 'dts-file=%s\n' "${input_file}"
-      sha256sum "${input_file}"
-    done < <(find "${dts_abs}" -type f | LC_ALL=C sort)
-  } | sha256sum | awk '{print $1}'
-}
-
-patch_marker="${source_abs}/.thorch-rocknix-patches-applied"
-patch_input_digest="$(kernel_input_digest)"
-if [[ "${skip_kernel_patches}" -eq 1 ]]; then
-  log "skipping kernel patch application for existing source checkout"
-elif [[ "${fetch}" -eq 0 && -f "${patch_marker}" ]]; then
-  stored_patch_input_digest="$(cat "${patch_marker}")"
-  [[ "${stored_patch_input_digest}" == "${patch_input_digest}" ]] ||
-    die "kernel patch or DTS inputs changed; rerun without --no-fetch to reconstruct a clean source tree"
-  log "using existing ROCKNIX-patched kernel source tree"
-else
-  log "applying ROCKNIX kernel patches"
-  for patch_dir in "${patch_dirs[@]}"; do
-    [[ -n "${patch_dir}" ]] || continue
-    apply_patch_dir "${patch_dir}"
-  done
-fi
-
-log "copying ROCKNIX SM8550 DTS overlays"
-rsync -a "${dts_abs}/" "${source_abs}/arch/arm64/boot/dts/"
-
-log "applying Thorch DTS patches"
-for patch_dir in "${dts_patch_dirs[@]}"; do
-  [[ -n "${patch_dir}" ]] || continue
-  apply_patch_dir "${patch_dir}"
-done
-
-# Keep Thor on ROCKNIX's conservative upstream SDHCI path. Validate the final
-# copied-and-patched DTS so a future nightly cannot silently reintroduce the
-# unstable UHS modes or remove the board clock cap.
-thor_ayn_dts="${source_abs}/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi"
-[[ -f "${thor_ayn_dts}" ]] ||
-  die "missing final ROCKNIX AYN DTS: ${thor_ayn_dts}"
-grep -Fq 'max-sd-hs-hz = <37500000>;' "${thor_ayn_dts}" ||
-  die "final ROCKNIX AYN DTS does not retain the 37.5 MHz SD clock cap"
-grep -Fq 'sdhci-caps-mask = <0x3 0x0>;' "${thor_ayn_dts}" ||
-  die "final ROCKNIX AYN DTS does not mask unsupported UHS capabilities"
-
-thor_board_dts="${source_abs}/arch/arm64/boot/dts/qcom/qcs8550-ayn-thor.dts"
-[[ -f "${thor_board_dts}" ]] ||
-  die "missing final ROCKNIX Thor DTS: ${thor_board_dts}"
-grep -Fq 'axis-range = <1024>;' "${thor_board_dts}" ||
-  die "final ROCKNIX Thor DTS does not advertise the calibrated 1024-count stick range"
-
-if [[ "${skip_kernel_patches}" -eq 0 ]]; then
-  printf '%s\n' "${patch_input_digest}" > "${patch_marker}"
-fi
-
-if [[ "${reuse_build_dir}" -eq 1 ]]; then
-  log "reusing kernel build directory at ${build_abs}"
-  install -d "${build_abs}"
-  if [[ ! -f "${build_abs}/.config" ]]; then
-    install -Dm644 "${config_abs}" "${build_abs}/.config"
-  fi
-else
-  rm -rf "${build_abs}"
-  install -d "${build_abs}"
-  install -Dm644 "${config_abs}" "${build_abs}/.config"
-fi
-
-apply_config_line() {
-  local line="$1" key value symbol string
-
-  if [[ "${line}" =~ ^[[:space:]]*#[[:space:]]CONFIG_([A-Za-z0-9_]+)[[:space:]]is[[:space:]]not[[:space:]]set[[:space:]]*$ ]]; then
-    bash "${source_abs}/scripts/config" --file "${build_abs}/.config" --disable "${BASH_REMATCH[1]}"
-    return 0
-  fi
-
-  line="${line%%#*}"
-  line="${line#"${line%%[![:space:]]*}"}"
-  line="${line%"${line##*[![:space:]]}"}"
-  [[ -n "${line}" ]] || return 0
-  [[ "${line}" == CONFIG_*=* ]] || return 0
-
-  key="${line%%=*}"
-  value="${line#*=}"
-  symbol="${key#CONFIG_}"
-  case "${value}" in
-    y)
-      bash "${source_abs}/scripts/config" --file "${build_abs}/.config" --enable "${symbol}"
-      ;;
-    m)
-      bash "${source_abs}/scripts/config" --file "${build_abs}/.config" --module "${symbol}"
-      ;;
-    n)
-      bash "${source_abs}/scripts/config" --file "${build_abs}/.config" --disable "${symbol}"
-      ;;
-    \"*\")
-      string="${value:1:${#value}-2}"
-      bash "${source_abs}/scripts/config" --file "${build_abs}/.config" --set-str "${symbol}" "${string}"
-      ;;
-    *)
-      bash "${source_abs}/scripts/config" --file "${build_abs}/.config" --set-val "${symbol}" "${value}"
-      ;;
-  esac
-}
-
-log "applying Thorch kernel feature config"
-while IFS= read -r line || [[ -n "${line}" ]]; do
-  apply_config_line "${line}"
-done < "${fragment_abs}"
-apply_config_line "CONFIG_IKCONFIG=y"
-apply_config_line "CONFIG_IKCONFIG_PROC=y"
-apply_config_line 'CONFIG_INITRAMFS_SOURCE=""'
-apply_config_line 'CONFIG_DEFAULT_HOSTNAME="Thorch"'
-apply_config_line "CONFIG_LOCALVERSION=\"${kernel_localversion}\""
-apply_config_line "CONFIG_LOCALVERSION_AUTO=n"
-
-make_args=(
-  -C "${source_abs}"
-  O="${build_abs}"
-  ARCH=arm64
-  CROSS_COMPILE="${cross_compile}"
-)
-
-log "resolving kernel config"
-make "${make_args[@]}" olddefconfig
-
-required_kernel_features=(
-  FUNCTION_TRACER
-  DYNAMIC_FTRACE
-  DYNAMIC_FTRACE_WITH_DIRECT_CALLS
-  DEBUG_INFO_BTF
-  SCHED_CLASS_EXT
-  KALLSYMS_ALL
-  UNICODE
-  CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
-)
-for symbol in "${required_kernel_features[@]}"; do
-  grep -q "^CONFIG_${symbol}=y$" "${build_abs}/.config" || \
-    die "kernel config: CONFIG_${symbol} did not resolve to y"
-done
-
-mapfile -t dtb_targets < <(
-  find "${dts_abs}/qcom" -maxdepth 1 -name 'qcs8550-*.dts' \
-  | LC_ALL=C sort | sed 's|.*/qcom/||; s|\.dts$|.dtb|; s|^|qcom/|'
-)
-[[ "${#dtb_targets[@]}" -gt 0 ]] || die "no ROCKNIX qcs8550 DTS files found in ${dts_abs}/qcom/"
-
-log "building Thor kernel, ${#dtb_targets[@]} ROCKNIX SM8550 DTBs, and modules"
-make "${make_args[@]}" -j"${jobs}" DTC_FLAGS=-@ Image "${dtb_targets[@]}" modules
-kernver="$(make "${make_args[@]}" -s kernelrelease)"
-[[ -n "${kernver}" ]] || die "unable to determine built kernel release"
-[[ "${kernver}" == "${expected_kernel_release}" ]] || \
-  die "built kernel release is ${kernver}, expected ${expected_kernel_release}"
-
-image="${build_abs}/arch/arm64/boot/Image"
-[[ -f "${image}" ]] || die "kernel build did not produce ${image}"
-dtb_paths=()
-for dtb_target in "${dtb_targets[@]}"; do
-  dtb_path="${build_abs}/arch/arm64/boot/dts/${dtb_target}"
-  [[ -f "${dtb_path}" ]] || die "kernel build did not produce ${dtb_path}"
-  dtb_paths+=("${dtb_path}")
-done
-
-modules_stage="${build_abs}/modules-stage"
-rm -rf "${modules_stage}"
-install -d "${modules_stage}"
-log "installing modules for ${kernver}"
-make "${make_args[@]}" INSTALL_MOD_PATH="${modules_stage}" INSTALL_MOD_STRIP=1 DEPMOD=/bin/true modules_install
-depmod -b "${modules_stage}" "${kernver}"
-[[ -d "${modules_stage}/lib/modules/${kernver}" ]] || die "modules_install did not produce lib/modules/${kernver}"
-
-boot_tmp="${build_abs}/thorch-boot.img"
-log "repacking Android boot template with source-built kernel and ROCKNIX SM8550 DTBs"
-printf 'appending %s DTB(s): %s\n' "${#dtb_paths[@]}" "$(basename -a "${dtb_paths[@]}" | paste -sd ', ' -)" >&2
-python3 "${boot_tool}" replace-kernel \
-  "${template_abs}" "${image}" "${boot_tmp}" "${dtb_paths[@]}"
-
-log "verifying embedded BinderFS kernel config"
-python3 "${boot_tool}" check-config "${image}" "${fragment_abs}"
-
-log "installing source-built Thor kernel artifacts into ${dest_abs}"
-rm -rf "${dest_abs}/usr/lib/modules" "${dest_abs}/boot/dtb/qcom"
-install -d "${dest_abs}/usr/lib/modules" "${dest_abs}/boot/dtb/qcom"
-rsync -a "${modules_stage}/lib/modules/" "${dest_abs}/usr/lib/modules/"
-install -Dm644 "${image}" "${dest_abs}/boot/Image"
-install -Dm644 "${boot_tmp}" "${dest_abs}/boot/KERNEL"
-for dtb_file in "${dtb_paths[@]}"; do
-    install -Dm644 "${dtb_file}" "${dest_abs}/boot/dtb/qcom/$(basename "${dtb_file}")"
-done
-
-provenance="${dest_abs}/PROVENANCE"
-provenance_tmp="$(mktemp)"
-if [[ -f "${provenance}" ]]; then
-  grep -Ev '^(THORCH_KERNEL_|SOURCE_THORCH_KERNEL_|WAYDROID_KERNEL_|SCHED_EXT_|STEAMOS_|THORCH_SD(R104)?_)' "${provenance}" > "${provenance_tmp}" || true
-else
-  : > "${provenance_tmp}"
-fi
-mv -f "${provenance_tmp}" "${provenance}"
+"$source_dir/scripts/config" --file "$build_dir/.config" \
+  --set-str LOCALVERSION "-thorch${release##*-thorch}" --disable LOCALVERSION_AUTO
+args=(-C "$source_dir" O="$build_dir" ARCH=arm64 CROSS_COMPILE="$cross_compile" LOCALVERSION=)
+make "${args[@]}" olddefconfig syncconfig
+[[ "$(make -s "${args[@]}" kernelrelease)" == "$release" ]] || die 'Kernel release mismatch'
+(( prepare_only )) && exit 0
+[[ -s "$dest/boot/loader/entries/rocknix.conf" ]] || \
+  die 'Import the current official ROCKNIX loader configuration before building'
+mapfile -t targets < <(find "$source_dir/arch/arm64/boot/dts/qcom" -maxdepth 1 \
+  -name 'qcs8550-*.dts' ! -name 'qcs8550-aim300-aiot.dts' -printf 'qcom/%f\n' | sort)
+(( ${#targets[@]} )) || die 'Missing committed SM8550 DTS sources'
+dtbs=()
+for target in "${targets[@]}"; do dtbs+=("${target%.dts}.dtb"); done
+make "${args[@]}" -j"$jobs" DTC_FLAGS=-@ Image modules "${dtbs[@]}"
+stage="$build_dir/modules-stage"
+mkdir -p "$stage"
+make "${args[@]}" INSTALL_MOD_PATH="$stage" INSTALL_MOD_STRIP=1 modules_install
+paths=()
+for dtb in "${dtbs[@]}"; do paths+=("$build_dir/arch/arm64/boot/dts/$dtb"); done
+boot_tool="$root/packages/thorch-bsp/payload/usr/lib/thorch/boot_image.py"
+python3 "$boot_tool" check-config "$build_dir/arch/arm64/boot/Image" \
+  "$root/packages/linux-thorch/waydroid-kernel.config"
+mkdir -p "$dest/boot" "$dest/usr/lib/modules"
+# Replace imported upstream modules with exactly this build's release. The
+# staging directory may also retain earlier incremental-build releases.
+rsync -a --delete --delete-excluded --include="/$release/***" --exclude='*' \
+  "$stage/lib/modules/" "$dest/usr/lib/modules/"
+cp "$build_dir/arch/arm64/boot/Image" "$dest/boot/Image"
+cp "$build_dir/arch/arm64/boot/Image" "$dest/boot/KERNEL"
+mkdir -p "$dest/boot/dtbs"
+cp "${paths[@]}" "$dest/boot/dtbs/"
 {
-  printf 'THORCH_KERNEL_SOURCE=source-built\n'
-  printf 'THORCH_KERNEL_REPO=%s\n' "${source_repo}"
-  printf 'THORCH_KERNEL_REF=%s\n' "${source_ref}"
-  printf 'THORCH_KERNEL_RESOLVED_REF=%s\n' "${resolved_ref}"
-  printf 'THORCH_KERNEL_RELEASE=%s\n' "${kernver}"
-  printf 'THORCH_KERNEL_CONFIG=%s\n' "${config_abs}"
-  printf 'THORCH_KERNEL_CONFIG_FRAGMENT=%s\n' "${fragment_abs}"
-  printf 'THORCH_KERNEL_PATCH_DIRS=%s\n' "${patch_dirs[*]}"
-  printf 'THORCH_KERNEL_DTS_DIR=%s\n' "${dts_abs}"
-  printf 'THORCH_KERNEL_DTS_PATCH_DIRS=%s\n' "${dts_patch_dirs[*]}"
-  printf 'SOURCE_THORCH_KERNEL_BOOT_TEMPLATE=%s\n' "${template_abs}"
-  printf 'WAYDROID_KERNEL_BINDERFS=enabled\n'
-  printf 'SCHED_EXT_LAVD_KERNEL=enabled\n'
-  printf 'STEAMOS_CASEFOLD_KERNEL=enabled\n'
-  printf 'THORCH_SD_DRIVER=upstream\n'
-  printf 'THORCH_SD_MAX_CLOCK_HZ=37500000\n'
-  date -u '+THORCH_KERNEL_BUILT_AT=%Y-%m-%dT%H:%M:%SZ'
-} >> "${provenance}"
-chmod 0644 "${provenance}"
-
-log "Thorch source-built feature kernel ready in ${dest_abs} (${kernver})"
+  printf 'THORCH_KERNEL_SOURCE=maintained-git-checkout\nTHORCH_KERNEL_RELEASE=%s\n' "$release"
+  printf 'THORCH_KERNEL_RESOLVED_REF=%s\n' "$(git -C "$source_dir" rev-parse HEAD)"
+  sha256sum "$build_dir/.config" "$dest/boot/Image" "$dest/boot/KERNEL"
+  sha256sum "$dest/boot/loader/entries/rocknix.conf" "$dest/boot/dtbs/qcs8550-ayn-thor.dtb"
+} > "$dest/KERNEL-PROVENANCE"
+cat "$dest/KERNEL-PROVENANCE" >> "$dest/PROVENANCE"
+log "Built $release from committed source; NOT deployed"

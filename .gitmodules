@@ -1,0 +1,9 @@
+[submodule "userdata/third_party/qcbor"]
+	path = userdata/third_party/qcbor
+	url = https://github.com/laurencelundblade/QCBOR.git
+[submodule "userdata/third_party/quic-teec"]
+	path = userdata/third_party/quic-teec
+	url = https://github.com/qualcomm/quic-teec.git
+[submodule "userdata/third_party/minkipc"]
+	path = userdata/third_party/minkipc
+	url = https://github.com/qualcomm/minkipc.git

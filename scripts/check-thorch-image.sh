@@ -132,6 +132,19 @@ for value in (
       return 1
     fi
     mcopy -o -i "${boot_ref}" ::/KERNEL "${tmpdir}/KERNEL" >/dev/null
+    if has_fat_path /loader/entries/thorch.conf; then
+      mkdir -p "${tmpdir}/dtbs" "${tmpdir}/loader/entries"
+      mcopy -o -i "${boot_ref}" ::/dtbs/qcs8550-ayn-thor.dtb "${tmpdir}/dtbs/"
+      mcopy -o -i "${boot_ref}" ::/loader/entries/thorch.conf "${tmpdir}/loader/entries/"
+      mcopy -o -i "${boot_ref}" ::/initramfs-linux-thorch.img "${tmpdir}/"
+      check 'native OpenABL boot files match the image root' \
+        python3 "${root}/packages/thorch-bsp/payload/usr/lib/thorch/native_boot.py" validate \
+        --boot-dir "${tmpdir}" --root-uuid "${root_uuid}"
+      if [[ "${THORCH_WAYDROID_KERNEL_REQUIRED:-1}" != 0 ]]; then
+        check 'native kernel supports Waydroid BinderFS' \
+          python3 "${boot_tool}" check-config "${tmpdir}/KERNEL" "${waydroid_kernel_config}"
+      fi
+    else
     kernel_file_type="$(file -b "${tmpdir}/KERNEL")"
 
     kernel_has_rocknix_thor_dtb() {
@@ -166,6 +179,7 @@ for value in (
     check "KERNEL embeds the ROCKNIX Thor DTB with overlay symbols" kernel_has_rocknix_thor_dtb
     check "KERNEL excludes the generic AIM300 DTB" kernel_excludes_generic_dtb
     check "KERNEL supports Waydroid BinderFS" kernel_supports_waydroid
+    fi
   fi
 
   if [[ "${failures}" -ne 0 ]]; then

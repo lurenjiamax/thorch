@@ -1,0 +1,114 @@
+name: Custom Thor Image
+
+on:
+  push:
+    branches:
+      - feat/thor-custom-kernel
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: custom-thor-kernel-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  kernel:
+    needs: checks
+    if: github.ref == 'refs/heads/feat/thor-custom-kernel'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 720
+    env:
+      GH_TOKEN: ${{ github.token }}
+      THORCH_DOCKER_IMAGE: thorch-custom-builder:local
+      THORCH_KERNEL_JOBS: '4'
+      THORCH_ANDROID_USERDATA: '1'
+      # Resolve latest once, verify its official checksum, record the actual tag.
+      ROCKNIX_KERNEL_RELEASE: latest
+      ROCKNIX_KERNEL_ALLOW_UNVERIFIED: '0'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Resolve maintained source pins
+        id: sources
+        run: |
+          python3 scripts/resolve-custom-sources.py \
+            --output output/custom-sources.json --github-output "$GITHUB_OUTPUT"
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/linux-thorch
+          ref: ${{ steps.sources.outputs.kernel }}
+          path: kernel-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/thorch-tme
+          ref: ${{ steps.sources.outputs.tme }}
+          path: tme-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/InputPlumber
+          ref: ${{ steps.sources.outputs.inputplumber }}
+          path: inputplumber-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/thorch-motion
+          ref: ${{ steps.sources.outputs.motion }}
+          path: motion-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/thorch-dump-debug
+          ref: ${{ steps.sources.outputs.dump }}
+          path: dump-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/hexagonrpc
+          ref: ${{ steps.sources.outputs.hexagonrpc }}
+          path: hexagonrpc-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/libssc
+          ref: ${{ steps.sources.outputs.libssc }}
+          path: libssc-src
+      - name: Build native ARM64 builder
+        run: make docker-image-build
+      - name: Build pinned source kernel
+        run: |
+          set -euo pipefail
+          docker run --privileged --rm --volume "$PWD:/work" --workdir /work \
+            --env THORCH_KERNEL_JOBS --env THORCH_ANDROID_USERDATA \
+            --env ROCKNIX_KERNEL_RELEASE --env ROCKNIX_KERNEL_ALLOW_UNVERIFIED \
+            "$THORCH_DOCKER_IMAGE" \
+            bash -lc '
+              set -euo pipefail
+              for checkout in /work /work/kernel-src /work/tme-src; do
+                git config --global --add safe.directory "$checkout"
+              done
+              bash scripts/sync-rocknix-kernel.sh
+            '
+      - name: Build and validate production-default custom image
+        run: |
+          set -euo pipefail
+          docker run --privileged --rm --env GITHUB_SHA --volume "$PWD:/work" --workdir /work \
+            "$THORCH_DOCKER_IMAGE" bash -lc '
+              set -euo pipefail
+              for checkout in /work /work/kernel-src /work/tme-src; do
+                git config --global --add safe.directory "$checkout"
+              done
+               bash scripts/build-custom-image.sh
+            '
+          sudo chown -R "$(id -u):$(id -g)" output
+      - name: Publish custom image and matching package set
+        run: |
+          set -euo pipefail
+          version=$(cat output/custom-kernel/version.txt)
+          tag="custom-image-${version}-${GITHUB_RUN_ID}"
+          gh release create "$tag" output/custom-image/*.pkg.tar.zst \
+            output/custom-image/*.img.zst output/custom-image/SHA256SUMS \
+            output/custom-image/SOURCES.json \
+            output/custom-image/PROVENANCE output/custom-image/TME-PROVENANCE \
+            output/custom-image/INSTALL.md \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "AYN Thor custom image ${version}" \
+            --notes-file output/custom-image/INSTALL.md

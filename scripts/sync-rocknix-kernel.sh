@@ -33,7 +33,8 @@ Options:
   --mount-probe-image <path>  Attach and mount a local partitioned image, emit
                               diagnostics, then exit. Used by Linux CI.
   --skip-thorch-kernel-build  Keep the imported ROCKNIX kernel payload. This is
-                              only for local diagnostics; Waydroid will fail.
+                               only for local diagnostics; Waydroid will fail.
+  --skip-runtime-import      Kernel-only build; do not import FEX/graphics runtime.
   --keep-mounted              Leave the loop image mounted for debugging.
 
 Root is required for the preferred loop-device path. If the container runtime
@@ -54,6 +55,7 @@ keep_mounted=0
 allow_unverified="${ROCKNIX_KERNEL_ALLOW_UNVERIFIED:-0}"
 build_thorch_kernel="${THORCH_KERNEL_SOURCE_BUILD:-1}"
 mount_probe_image=""
+skip_runtime_import=0
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -113,6 +115,10 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --skip-thorch-kernel-build)
       build_thorch_kernel=0
+      shift
+      ;;
+    --skip-runtime-import)
+      skip_runtime_import=1
       shift
       ;;
     --keep-mounted)
@@ -357,7 +363,7 @@ for part in "${loop_device}" "${partitions[@]}"; do
 done
 
 for part in "${partitions[@]}"; do
-  mountpoint="$(mktemp -d /tmp/thorch-rocknix-part.XXXXXX)"
+  mountpoint="$(mktemp -d "${cache_abs}/thorch-rocknix-part.XXXXXX")"
   log "mount attempt source=${part} target=${mountpoint} options=ro"
   if mount -v -o ro "${part}" "${mountpoint}"; then
     mounts+=("${mountpoint}")
@@ -377,11 +383,12 @@ if [[ "${#mounts[@]}" -eq 0 ]]; then
   [[ "${partition_start}" =~ ^[0-9]+$ && "${sector_size}" =~ ^[0-9]+$ ]] ||
     die "unable to determine the ROCKNIX boot partition offset"
   partition_offset=$((partition_start * sector_size))
-  userspace_boot_tree="$(mktemp -d /tmp/thorch-rocknix-boot.XXXXXX)"
+  userspace_boot_tree="$(mktemp -d "${cache_abs}/thorch-rocknix-boot.XXXXXX")"
   if ! mcopy -o -i "${image}@@${partition_offset}" \
       ::/KERNEL ::/SYSTEM "${userspace_boot_tree}/"; then
     die "unable to extract ROCKNIX boot files from ${image}"
   fi
+  mcopy -s -o -i "${image}@@${partition_offset}" ::/dtbs ::/loader "${userspace_boot_tree}/" || true
   mounts+=("${userspace_boot_tree}")
 fi
 
@@ -424,10 +431,14 @@ normalize_immutable_rocknix_image() {
   local boot_dir="$1"
   [[ -f "${boot_dir}/KERNEL" && -f "${boot_dir}/SYSTEM" ]] || return 1
 
-  work_tree="$(mktemp -d /tmp/thorch-rocknix-tree.XXXXXX)"
-  extract_android_boot_kernel \
-    "${boot_dir}/KERNEL" \
-    "${work_tree}/boot/Image"
+  work_tree="$(mktemp -d "${cache_abs}/thorch-rocknix-tree.XXXXXX")"
+  if [[ -f "${boot_dir}/loader/entries/rocknix.conf" && -d "${boot_dir}/dtbs" ]]; then
+    install -Dm644 "${boot_dir}/KERNEL" "${work_tree}/boot/Image"
+    cp -a "${boot_dir}/dtbs" "${boot_dir}/loader" "${work_tree}/boot/"
+  else
+    extract_android_boot_kernel \
+      "${boot_dir}/KERNEL" "${work_tree}/boot/Image" || return 1
+  fi
   install -Dm644 "${boot_dir}/KERNEL" "${work_tree}/boot/KERNEL"
 
   log "extracting ROCKNIX kernel modules and runtime files from SYSTEM"
@@ -482,22 +493,24 @@ log "importing ROCKNIX kernel artifacts from ${image_name}"
   --dest "${dest_abs}" \
   --ref "${ref_label}"
 
-log "importing ROCKNIX runtime artifacts from ${image_name}"
-"${script_dir}/import-rocknix-runtime.sh" \
-  --root-dir "${import_root}" \
-  --dest "${runtime_dest_abs}" \
-  --ref "${ref_label}"
+if [[ "${skip_runtime_import}" == 0 ]]; then
+  log "importing ROCKNIX runtime artifacts from ${image_name}"
+  "${script_dir}/import-rocknix-runtime.sh" \
+    --root-dir "${import_root}" \
+    --dest "${runtime_dest_abs}" \
+    --ref "${ref_label}"
+fi
 
 runtime_provenance="${runtime_dest_abs}/PROVENANCE"
-if [[ -f "${runtime_provenance}" ]]; then
-  runtime_provenance_tmp="$(mktemp)"
+if [[ "${skip_runtime_import}" == 0 && -f "${runtime_provenance}" ]]; then
+  runtime_provenance_tmp="$(mktemp "${cache_abs}/runtime-provenance.XXXXXX")"
   grep -Ev '^SOURCE_(ROOT_DIR|RUNTIME_ROOT|FEX|FEX_ROOTFS_FETCHER|FEX_HOST_THUNKS|FEX_GUEST_THUNKS|FEX_VULKAN_FREEDRENO)=' "${runtime_provenance}" > "${runtime_provenance_tmp}" || true
   mv -f "${runtime_provenance_tmp}" "${runtime_provenance}"
   chmod 0644 "${runtime_provenance}"
 fi
 
 provenance="${dest_abs}/PROVENANCE"
-provenance_tmp="$(mktemp)"
+provenance_tmp="$(mktemp "${cache_abs}/kernel-provenance.XXXXXX")"
 grep -Ev '^SOURCE_(BOOT|ROOT)_DIR=|^SOURCE_(IMAGE|DTB|MODULES|FIRMWARE_ROOT)=|^SOURCE_ROCKNIX_BOOT_PAYLOAD=|^(THORCH_KERNEL_|SOURCE_THORCH_KERNEL_|WAYDROID_KERNEL_)' "${provenance}" > "${provenance_tmp}" || true
 mv -f "${provenance_tmp}" "${provenance}"
 {
@@ -511,7 +524,7 @@ mv -f "${provenance_tmp}" "${provenance}"
   [[ -z "${image_sha256}" ]] || printf 'SOURCE_ROCKNIX_IMAGE_SHA256=%s\n' "${image_sha256}"
 } >> "${dest_abs}/PROVENANCE"
 
-if [[ -f "${runtime_provenance}" ]]; then
+if [[ "${skip_runtime_import}" == 0 && -f "${runtime_provenance}" ]]; then
   {
     printf 'ROCKNIX_KERNEL_SOURCE=%s\n' "${source_channel}"
     printf 'ROCKNIX_KERNEL_PLATFORM=%s\n' "${platform}"

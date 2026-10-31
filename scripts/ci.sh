@@ -249,7 +249,9 @@ if (( ${#cargo_manifests[@]} > 0 )); then
       cd "${manifest_dir}"
       cargo fmt --all --check
       cargo clippy --all-targets --all-features -- -D warnings
-      cargo test --all-targets --all-features
+      if [[ "${THORCH_CI_RUN_TESTS:-1}" == 1 ]]; then
+        cargo test --all-targets --all-features
+      fi
     )
   done
 else
@@ -268,7 +270,9 @@ else
     # source, but introduce warning-as-error together with its Cargo migration.
     clippy-driver --edition=2021 -W clippy::all "${file}" -o "${rust_tmp}/$(basename "${file}" .rs)"
   done
-  scripts/test-rust-components.sh
+  if [[ "${THORCH_CI_RUN_TESTS:-1}" == 1 ]]; then
+    scripts/test-rust-components.sh
+  fi
   rm -rf "${rust_tmp}"
   trap - EXIT
 fi
@@ -298,7 +302,11 @@ trap - EXIT
 note "release audit"
 scripts/audit-release.sh
 
-note "behavioral tests"
-THORCH_REQUIRE_QML_SMOKE=1 make test
+if [[ "${THORCH_CI_RUN_TESTS:-1}" == 1 ]]; then
+  note "behavioral tests"
+  THORCH_REQUIRE_QML_SMOKE=1 make test
+else
+  note "Tests not requested: static checks only; release build runs separately"
+fi
 
 printf '\nAll rootless CI checks passed.\n'

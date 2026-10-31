@@ -3,6 +3,10 @@
 /cache/
 /output/
 /local/
+/artifacts/
+# Maintained independent Git repositories, not disposable build products.
+/kernel-src/
+/tme-src/
 /vendor/rocknix-kernel/
 /vendor/rocknix-runtime/
 /vendor/rocknix-sm8550/
