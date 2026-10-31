@@ -2,7 +2,7 @@
 
 pkgname=thorch-firmware-rocknix
 pkgver=1
-pkgrel=13
+pkgrel=14
 pkgdesc='Public and image-derived ROCKNIX SM8550 firmware packaged for Thorch'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
@@ -10,6 +10,8 @@ license=(custom)
 depends=()
 makedepends=()
 provides=(
+  linux-firmware-amd
+  linux-firmware-ti
   linux-firmware
   linux-firmware-amdgpu
   linux-firmware-atheros
@@ -30,6 +32,8 @@ provides=(
   linux-firmware-whence
 )
 conflicts=(
+  linux-firmware-amd
+  linux-firmware-ti
   linux-firmware
   linux-firmware-amdgpu
   linux-firmware-atheros
@@ -50,6 +54,8 @@ conflicts=(
   linux-firmware-whence
 )
 replaces=(
+  linux-firmware-amd
+  linux-firmware-ti
   linux-firmware
   linux-firmware-amdgpu
   linux-firmware-atheros

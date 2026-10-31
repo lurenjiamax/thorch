@@ -17,6 +17,28 @@ preflight="${THORCH_STEAM_PREFLIGHT:-1}"
 binfmt_helper_override="${THORCH_FEX_BINFMT_HELPER:-}"
 binfmt_helper="${binfmt_helper_override:-/usr/bin/thorch-fex-binfmt}"
 
+configure_fex_graphics_provider() {
+  [[ -z "${STEAM_COMPAT_GRAPHICS_PROVIDER:-}" ]] || return 0
+  local rootfs="${FEX_ROOTFS:-}" config provider link
+  if [[ -z "${rootfs}" ]]; then
+    for config in /usr/share/fex-emu/Config.json "${HOME}/.fex-emu/Config.json"; do
+      [[ -f "${config}" ]] || continue
+      rootfs="$(jq -r --arg fallback "${rootfs}" '.Config.RootFS // $fallback' "${config}")"
+    done
+  fi
+  [[ -d "${rootfs}" && -f "${rootfs}/usr/lib/ld-linux-x86-64.so.2" ]] || return 0
+  provider="${rootfs}/graphics_provider.json"
+  [[ -f "${provider}" ]] || return 0
+  link="${steam_root}/fex-rootfs"
+  if [[ -e "${link}" && ! -L "${link}" ]]; then
+    echo "Warning: ${link} is not a symlink; using the configured FEX RootFS directly." >&2
+  else
+    ln -sfnT "${rootfs}" "${link}"
+    provider="${link}/graphics_provider.json"
+  fi
+  export STEAM_COMPAT_GRAPHICS_PROVIDER="${provider}"
+}
+
 build_runtime_path() {
   local candidate
   local -a entries=(
@@ -169,6 +191,7 @@ fi
 repair_steam_install
 
 configure_mangohud
+configure_fex_graphics_provider
 export LD_LIBRARY_PATH="${steam_root}/lib/aarch64-linux-gnu"
 build_runtime_path
 export STEAM_BASE_FOLDER="${steam_root}"
