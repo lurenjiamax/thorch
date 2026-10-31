@@ -1,0 +1,19 @@
+[Unit]
+Description=Thor synchronous kernel and suspend event capture
+After=local-fs.target
+Before=thorch-pm-debug.service
+
+[Service]
+Type=notify
+EnvironmentFile=/etc/thorch/boot-debug.conf
+ExecCondition=/bin/sh -c 'test "$THORCH_BOOT_DEBUG" = 1'
+ExecStart=/usr/bin/python3 /usr/lib/thorch/pm-log
+StateDirectory=thorch/pm-logs
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Synchronously retain kernel/PM records independently of ramoops."""
+import errno
+import os
+from pathlib import Path
+import select
+import socket
+
+
+def main() -> None:
+    root = Path(os.environ["STATE_DIRECTORY"])
+    boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+    directory = root / boot
+    directory.mkdir(mode=0o700, exist_ok=True)
+    parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    os.fsync(parent)
+    os.close(parent)
+    trace = Path('/sys/kernel/tracing/instances/thorch_pm_log')
+    trace.mkdir(exist_ok=True)
+    (trace / 'buffer_size_kb').write_text('1024')
+    for event in (
+        'power/suspend_resume', 'power/device_pm_callback_start',
+        'power/device_pm_callback_end', 'ufs/ufshcd_runtime_suspend',
+        'ufs/ufshcd_runtime_resume', 'ufs/ufshcd_system_suspend',
+        'ufs/ufshcd_system_resume',
+    ):
+        (trace / 'events' / event / 'enable').write_text('1')
+    (trace / 'tracing_on').write_text('1')
+    poll = select.poll()
+    streams: dict[int, tuple[str, int]] = {}
+    for name, source in (('kernel', Path('/dev/kmsg')),
+                         ('pm', trace / 'trace_pipe')):
+        source_fd = os.open(source, os.O_RDONLY | os.O_NONBLOCK)
+        output = directory / (name + '.log')
+        output_fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_DSYNC, 0o600)
+        streams[source_fd] = (name, output_fd)
+        poll.register(source_fd, select.POLLIN)
+    parent = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    os.fsync(parent)
+    os.close(parent)
+    notify = os.environ['NOTIFY_SOCKET']
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+        sock.connect('\0' + notify[1:] if notify.startswith('@') else notify)
+        sock.sendall(b'READY=1\nSTATUS=Synchronously recording kernel and PM events')
+    print(f'Recording to {directory}; each stream bounded to two 16 MiB files', flush=True)
+    while True:
+        for source_fd, events in poll.poll():
+            if events & (select.POLLERR | select.POLLNVAL):
+                # /dev/kmsg reports EPIPE when its ring overruns; read to recover.
+                if events & select.POLLNVAL:
+                    raise RuntimeError('Diagnostic input closed')
+            try:
+                data = os.read(source_fd, 65536)
+            except BlockingIOError:
+                continue
+            except OSError as exc:
+                if exc.errno != errno.EPIPE:
+                    raise
+                data = b'\n[pm-log: kernel ring overrun; records lost]\n'
+            if not data:
+                raise RuntimeError('Diagnostic input reached EOF')
+            name, output_fd = streams[source_fd]
+            if os.fstat(output_fd).st_size + len(data) > 16 * 1024 * 1024:
+                os.close(output_fd)
+                output = directory / (name + '.log')
+                output.replace(directory / (name + '.previous.log'))
+                output_fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_DSYNC, 0o600)
+                streams[source_fd] = (name, output_fd)
+                parent = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+                os.fsync(parent)
+                os.close(parent)
+            pending = memoryview(data)
+            while pending:
+                pending = pending[os.write(output_fd, pending):]
+
+
+if __name__ == '__main__':
+    main()

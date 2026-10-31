@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Opt-in, bounded-function tracing into ramoops; no sleep or forced panic.
+set -euo pipefail
+trace=/sys/kernel/tracing
+record=/sys/kernel/debug/pstore/record_ftrace
+debug=/sys/kernel/debug/dynamic_debug/control
+case "${1:-}" in
+  start)
+    [[ -w "$record" ]] || { echo 'No persistent ftrace backend available' >&2; exit 1; }
+    [[ $(cat "$record") == 0 ]] || {
+      echo 'Persistent function tracing is already active; preserving it' >&2
+      exit 1
+    }
+    [[ $(cat "$trace/current_tracer") == nop ]] || {
+      echo 'Preserving an existing function tracer; stop it before enabling PM diagnostics' >&2
+      exit 1
+    }
+    if grep -qv '^#' "$trace/set_ftrace_filter"; then
+      echo 'Preserving existing function filters; clear them before enabling PM diagnostics' >&2
+      exit 1
+    fi
+    functions=(ksys_sync pm_fs_sync_work_fn sync_inodes_one_sb sync_fs_one_sb
+      f2fs_sync_fs fuse_sync_fs qcom_ice_hwkm_init qcom_ice_resume qcom_ice_suspend)
+    selected=()
+    for name in "${functions[@]}"; do
+      if grep -qE "^${name}( |$)" "$trace/available_filter_functions"; then
+        selected+=("$name")
+      fi
+    done
+    (( ${#selected[@]} )) || { echo 'No diagnostic functions found' >&2; exit 1; }
+    [[ ! -e /run/modprobe.d/thorch-pm-debug.conf && ! -L /run/modprobe.d/thorch-pm-debug.conf ]] || {
+      echo 'Existing PM module-debug override found; preserving it' >&2
+      exit 1
+    }
+    # ExecStop is not run when ExecStart fails. Do not leave a failed service
+    # recording or holding its filters, which would also prevent retrying.
+    trap 'printf 0 > "$record"; printf "\n" > "$trace/set_ftrace_filter"; printf "%s\n" "file fs/sync.c -p" "format \"PMDIAG\" -p" > "$debug"; rm -f /run/modprobe.d/thorch-pm-debug.conf' EXIT
+    # This Kconfig default is hidden without EXPERT. Set the actual pstore
+    # dump budget through its supported remount interface instead.
+    mount -o remount,kmsg_bytes=262144 /sys/fs/pstore
+    printf '%s\n' "${selected[@]}" > "$trace/set_ftrace_filter"
+    # The ftrace module command caches these filters until lazy TME loading.
+    printf '%s\n' 'tmecom_process_request:mod:aynthor_tme' \
+      'qmp_send_data:mod:aynthor_qmp' 'qmp_thread_irq_handler:mod:aynthor_qmp' \
+      'qmp_notify_timeout:mod:aynthor_qmp' >> "$trace/set_ftrace_filter"
+    printf '%s\n' 'file fs/sync.c +p' 'format "PMDIAG" +p' > "$debug"
+    install -d /run/modprobe.d
+    ln -s /usr/share/thorch/pm-debug-modprobe.conf /run/modprobe.d/thorch-pm-debug.conf
+    if grep -q '^aynthor_tme ' /proc/modules; then
+      printf '%s\n' 'module aynthor_tme +p' > "$debug"
+    fi
+    sysctl -w kernel.watchdog=1 kernel.soft_watchdog=1 kernel.nmi_watchdog=1 \
+      kernel.watchdog_thresh=20 \
+      kernel.hung_task_timeout_secs=30 kernel.hung_task_warnings=10 \
+      kernel.hung_task_panic=0 kernel.softlockup_panic=0 kernel.hardlockup_panic=0 \
+      'kernel.printk=8 4 1 7'
+    printf 1 > /sys/power/pm_print_times
+    printf 1 > /sys/power/pm_debug_messages
+    printf 1 > "$record"
+    trap - EXIT
+    echo 'Persistent PM tracing enabled; lockup detectors log without forcing panic'
+    ;;
+  stop)
+    [[ ! -w "$record" ]] || printf 0 > "$record"
+    printf '\n' > "$trace/set_ftrace_filter"
+    printf '%s\n' 'file fs/sync.c -p' 'format "PMDIAG" -p' > "$debug"
+    if grep -q '^aynthor_tme ' /proc/modules; then
+      printf '%s\n' 'module aynthor_tme -p' > "$debug"
+    fi
+    rm -f /run/modprobe.d/thorch-pm-debug.conf
+    printf 0 > /sys/power/pm_print_times
+    printf 0 > /sys/power/pm_debug_messages
+    echo 'Persistent PM tracing stopped; watchdog settings reset on reboot'
+    ;;
+  *) echo 'Usage: pm-debug start|stop' >&2; exit 2 ;;
+esac
