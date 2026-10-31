@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Share only media/0 through bindfs; do not chown Android files recursively.
+set -euo pipefail
+[[ $(id -u) == 0 ]] || { echo 'Run as root' >&2; exit 1; }
+uid="$(id -u "${1:?Usage: share-userdata LINUX_USER}")"
+(( uid != 0 )) || { echo 'Choose a non-root user' >&2; exit 1; }
+source=/mnt/android-data/media/0
+target=/mnt/aynthor-android/userdata
+mountpoint -q /mnt/android-data
+test -d "$source"
+! mountpoint -q "$target" || { echo 'Shared view already mounted' >&2; exit 1; }
+mkdir -p "$target"
+systemd-run --unit=aynthor-userdata-share --collect \
+  --property=Type=exec --property=Restart=on-failure \
+  /usr/bin/bindfs -f "--mirror-only=$uid" --perms=u+rwX \
+  "--create-for-user=$(stat -c %u "$source")" \
+  "--create-for-group=$(stat -c %g "$source")" \
+  --chown-ignore --chgrp-ignore --chmod-ignore --xattr-ro \
+  -o nosuid,nodev,noexec "$source" "$target"
+echo "Shared media/0 at $target for UID $uid; verify with findmnt before use"

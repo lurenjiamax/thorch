@@ -1,0 +1,33 @@
+name: Android Userdata Collector
+
+on:
+  push:
+    branches: [feat/thor-custom-kernel]
+    paths:
+      - 'userdata/**'
+      - 'scripts/build-android-collector.sh'
+      - '.github/workflows/android-collector.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Install pinned Android build tools
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'build-tools;35.0.0' 'ndk;27.1.12297006'
+      - name: Build collector without device-private inputs
+        run: |
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          bash scripts/build-android-collector.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aynthor-userdata-android-collector
+          path: build/android-collector/package/
+          if-no-files-found: error

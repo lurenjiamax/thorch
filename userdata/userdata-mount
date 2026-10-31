@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Explicit experimental mount; never enabled automatically or repair filesystems.
+set -euo pipefail
+[[ $(id -u) == 0 ]] || { echo 'Run as root' >&2; exit 1; }
+base=/var/lib/aynthor/android
+mode="${1:---test-user0-readonly}"
+case "$mode" in
+  --test-metadata-readonly|--test-user0-readonly|--mount-user0-rw) ;;
+  *) echo 'Use --test-metadata-readonly, --test-user0-readonly or --mount-user0-rw' >&2; exit 2 ;;
+esac
+[[ -r "$base/keymint-runtime/properties.env" ]] || { echo 'Import this device Android materials first' >&2; exit 1; }
+source "$base/keymint-runtime/properties.env"
+: "${AYNTHOR_ANDROID_RELEASE:?Missing collected Android release}"
+: "${AYNTHOR_ANDROID_OS_PATCH:?Missing collected OS patch}"
+: "${AYNTHOR_ANDROID_VENDOR_PATCH:?Missing collected vendor patch}"
+for argument in qcom_ice.use_wrapped_keys=1 qcom_ice.android_legacy_hwkm=1; do
+  grep -qw "$argument" /proc/cmdline || { echo "Missing kernel argument: $argument" >&2; exit 1; }
+done
+# The current converter uses these nodes. Refuse a different partition layout.
+[[ "$(readlink -f /dev/disk/by-partlabel/userdata)" == /dev/sda17 ]] || {
+  echo 'Unsupported userdata partition layout; do not substitute another node blindly' >&2; exit 1;
+}
+[[ -z "$(pgrep -x fsck.f2fs || true)" ]] || { echo 'Filesystem check is running' >&2; exit 1; }
+for module in aynthor_qmp tme_overlay_loader aynthor_tme dm-default-key quota_v2; do
+  modprobe "$module"
+done
+exec env AYNTHOR_TEE_SHM_PROBE=1 \
+  LD_LIBRARY_PATH="$base/keymint-runtime/lib64" \
+  LD_PRELOAD="$base/keymint-runtime/lib64/conversion-compat.so:$base/keymint-runtime/lib64/libaynthor-mink-bridge.so" \
+  "$base/keymint-runtime/bin/linker64" "$base/keymint-runtime/bin/native-convert" \
+  "$base/keymint-private/metadata.keyblob" "$mode"

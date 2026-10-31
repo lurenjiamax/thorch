@@ -1,0 +1,12 @@
+{
+  global:
+    aynthor_mink_prepare;
+    aynthor_mink_is_prepared;
+    aynthor_mink_wipe_buffers;
+    TZCom_getClientEnvObject;
+    TZCom_getFdObject;
+    _ZN15BufferAllocator5Alloc*;
+    _ZN15BufferAllocator12CpuSyncStart*;
+    _ZN15BufferAllocator10CpuSyncEnd*;
+  local: *;
+};
