@@ -33,9 +33,9 @@ mounting requires a separately provisioned, device-specific experimental
 backend; installing this kernel alone does not unlock Android userdata.
 
 Thorch is an experimental Arch Linux ARM image for the AYN Thor, built on top of
-public ROCKNIX work. It syncs ROCKNIX's SM8550 kernel recipe, patch stack, Thor
-DTS overlays, firmware, runtime graphics pieces, FEX assets, device
-configuration, handheld package patch sets, and ABL-compatible boot layout.
+public ROCKNIX work. It builds the maintained Thor kernel and component
+repositories, imports ROCKNIX firmware and runtime graphics/FEX assets, and
+provides device configuration and a native OpenABL boot layout.
 
 Join the [Thorch Discord](https://discord.gg/vbmkGaCxdC) to follow development,
 test builds, or help inform future development.

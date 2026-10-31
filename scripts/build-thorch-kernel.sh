@@ -26,7 +26,6 @@ while (( $# )); do
     --cross-compile) cross_compile="$2"; shift 2 ;;
     --prepare-only) prepare_only=1; shift ;;
     --reuse-build-dir|--incremental) reuse=1; shift ;;
-    --no-fetch|--skip-kernel-patches) shift ;; # Always source-preserving now.
     --help|-h)
       echo 'Compile committed kernel-src without downloading or editing source.'
       echo 'Options: --source-dir --build-dir --config --dest --jobs'

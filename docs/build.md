@@ -12,7 +12,24 @@ applying patches or rewriting source. Kernel output goes to
 `M` and `MO`. Edit maintained sources directly; retain upstream licensing and
 provenance. Runtime versions come from the fixed package recipes.
 
-The requested source and kernel refs live in `config/thorch.conf`. The generated
+Repository boundaries:
+
+| Location | Maintained content |
+| --- | --- |
+| `packages/`, `scripts/`, `config/`, `manifests/` | Thorch packaging, image composition and distribution policy |
+| `kernel-src/`, `tme-src/` | Independent kernel and TME repositories |
+| `inputplumber-src/`, `motion-src/` | Independent input and sensor repositories, including their component recipes |
+| `hexagonrpc-src/`, `libssc-src/`, `dump-src/` | Independent DSP, SSC and optional dump component repositories |
+| `userdata/third_party/` | Tracked third-party library submodules |
+| `vendor/` | Imported upstream inputs, not maintained component source |
+| `build/`, `output/`, `artifacts/` | Generated build state and deliverables |
+
+Checkout locations match the custom-image workflow and are excluded from this
+repository's tracked source. Keep component changes in their owning repository;
+do not copy implementations or add cross-repository package symlinks here.
+
+Component repositories, branches and checkout locations live in
+`source-checkouts.conf`; image settings live in `config/thorch.conf`. The generated
 source, kernel, and runtime provenance files record the exact resolved inputs
 used for a build. Update the config and imported ROCKNIX image provenance
 together when moving the hardware baseline.
@@ -21,8 +38,9 @@ Android shared-storage setup and limits are described in
 [android-userdata-mount.md](android-userdata-mount.md).
 
 Thorch supplies the Arch Linux ARM root filesystem, KDE defaults, firmware
-package, initramfs, userspace installers, and a small BinderFS config fragment
-applied on top of the ROCKNIX kernel recipe.
+package, initramfs and userspace installers. Kernel configuration and DTS changes
+are maintained directly in `linux-thorch`; the package's config requirements are
+checked against the built Image rather than applied as source patches.
 
 Before building packages or images, sync the public ROCKNIX SM8550 firmware and
 metadata:
@@ -43,7 +61,7 @@ The ROCKNIX kernel sync requires `curl`, `jq`, `losetup`, `mount`,
 
 Then sync the ROCKNIX image-derived runtime inputs and build the Thorch kernel.
 This is a required clean-build input; `make sync` only downloads public source
-overlays and firmware, not the ABL boot-image template or FEX runtime. By
+overlays and firmware, not the native boot companions or FEX runtime. By
 default, the kernel sync resolves the latest official ROCKNIX SM8550 nightly,
 verifies its checksum, extracts `/KERNEL` and
 `/SYSTEM`, and normalizes the result
@@ -68,7 +86,7 @@ Package and image builders reject smoke-test or local `makepkg` kernel
 provenance. Re-import the boot template/runtime from a real ROCKNIX image and
 let `scripts/build-thorch-kernel.sh` replace the kernel/modules before preparing
 release artifacts. They also compare the provenance release and module-tree
-directory with `THORCH_KERNEL_REF`, rejecting stale or mismatched kernel
+directory with the `linux-thorch` package release, rejecting stale or mismatched kernel
 artifacts before packaging.
 
 For clean-room testing, do not import from previous Thorch output directories,
@@ -327,12 +345,10 @@ describes their purpose without duplicating mutable source or kernel refs.
 - `THORCH_ROCKNIX_KERNEL_DIR`: ROCKNIX-derived kernel artifact directory.
 - `THORCH_ROCKNIX_RUNTIME_DIR`: imported ROCKNIX runtime/FEX artifact directory.
 - `THORCH_KERNEL_SOURCE_BUILD`: set to `0` only to keep the imported ROCKNIX kernel payload for diagnostics; Waydroid BinderFS support is not guaranteed.
-- `THORCH_KERNEL_REF`: Linux kernel tag/ref used by the ROCKNIX SM8550 recipe.
-- `THORCH_KERNEL_TARBALL_URL`: kernel source tarball URL; set empty to use the git repo/ref path.
-- `THORCH_KERNEL_CONFIG`: ROCKNIX base kernel config, default `vendor/rocknix-sm8550/linux/linux.aarch64.conf`.
-- `THORCH_KERNEL_CONFIG_FRAGMENT`: Thorch required config fragment, default `packages/linux-thorch/waydroid-kernel.config`.
-- `THORCH_KERNEL_PATCH_DIRS`: ROCKNIX patch directories applied to the kernel source.
-- `THORCH_KERNEL_DTS_DIR`: ROCKNIX DTS overlay directory, default `vendor/rocknix-sm8550/linux/dts`.
+- `THORCH_KERNEL_REF`: compatibility check for imported provenance carrying a Linux base tag; maintained source selection is in `source-checkouts.conf`.
+- `THORCH_KERNEL_SOURCE_DIR`: maintained kernel checkout, default `kernel-src`.
+- `THORCH_KERNEL_BUILD_DIR`: out-of-tree build output, default `build/kernel-build`.
+- `THORCH_KERNEL_CONFIG`: committed kernel config, default `kernel-src/arch/arm64/configs/thorch_recovered_defconfig`.
 - `THORCH_PACKAGE_JOBS`: parallelism used by makepkg and CMake package builds,
   defaulting to the host's online processor count; lower it on
   memory-constrained builders.

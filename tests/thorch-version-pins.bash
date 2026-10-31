@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 (
   unset ROCKNIX_REF ROCKNIX_KERNEL_SOURCE ROCKNIX_KERNEL_RELEASE ROCKNIX_KERNEL_IMAGE_SHA256
-  unset THORCH_KERNEL_REF THORCH_KERNEL_TARBALL_SHA256
+  unset THORCH_KERNEL_REF
   # shellcheck source=../config/thorch.conf
   source "${root}/config/thorch.conf"
 
@@ -14,7 +14,6 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   [[ "${ROCKNIX_KERNEL_RELEASE}" == "nightly-20260730" ]]
   [[ "${ROCKNIX_KERNEL_IMAGE_SHA256}" == "83b894b2fa89304f91d554d5f9268d846c42b0a90ad970b7a6900839c531ff99" ]]
   [[ "${THORCH_KERNEL_REF}" == "v7.1.2" ]]
-  [[ "${THORCH_KERNEL_TARBALL_SHA256}" == "37198c93727be247c9fb5309bb86cd5e496c61e5322cd8c4eca9476bb0b5883f" ]]
 )
 
 (

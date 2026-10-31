@@ -7,6 +7,11 @@
 # Maintained independent Git repositories, not disposable build products.
 /kernel-src/
 /tme-src/
+/inputplumber-src/
+/motion-src/
+/hexagonrpc-src/
+/libssc-src/
+/dump-src/
 /vendor/rocknix-kernel/
 /vendor/rocknix-runtime/
 /vendor/rocknix-sm8550/

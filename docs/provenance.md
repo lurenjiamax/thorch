@@ -7,17 +7,18 @@ from public upstreams and recorded with provenance files.
 
 The public ROCKNIX distribution repository provides the SM8550 kernel recipe,
 patch stack, AYN Thor DTS overlays, input mappings, and firmware used by
-Thorch. ROCKNIX image artifacts provide the ABL boot-image template plus runtime
-payloads that Thorch repacks around its source-built kernel:
+Thorch. ROCKNIX image artifacts provide native boot companions and runtime
+payloads used alongside the maintained source-built kernel:
 
 https://github.com/ROCKNIX/distribution
 
-The requested source and kernel refs are defined in `config/thorch.conf`.
+Component repositories and branches are defined in `source-checkouts.conf`;
+image settings are defined in `config/thorch.conf`.
 Generated `SOURCE_PROVENANCE`, kernel `PROVENANCE`, and runtime `PROVENANCE`
-files record the exact resolved inputs. Thorch builds from the configured
-kernel source, applies the synced ROCKNIX patch/config/DTS inputs, then applies
-the local BinderFS/Waydroid config fragment. Release builds should change these
-inputs only as one reviewed baseline update.
+files record the exact resolved inputs. Thorch builds the committed
+`linux-thorch` checkout without applying patches or replacing its config/DTS
+sources. Kernel and TME implementation changes belong in their component
+repositories; this repository owns image composition and package integration.
 
 Use a pinned commit or labelled ROCKNIX image build for release builds:
 
@@ -34,8 +35,8 @@ Image and package builds refuse kernel provenance that points back at local
 `makepkg` output or smoke-test imports. Re-import the ROCKNIX boot
 template/runtime from a mounted or extracted ROCKNIX image and rebuild the
 Thorch BinderFS kernel before preparing release artifacts. The builders also
-require the recorded kernel release and module tree to match
-`THORCH_KERNEL_REF`.
+require the recorded kernel release and module tree to match the `linux-thorch`
+package release.
 
 ## AYN Linux
 
@@ -45,8 +46,8 @@ https://github.com/AYNTechnologies/linux
 
 AYN's branch and tag history is source-level review material when updating
 kernel, DTS, firmware paths, ALSA card aliases, gamepad handling, or RGB
-support. Those references are not build pins: Thorch follows the configured
-ROCKNIX recipe and the exact inputs recorded in generated provenance files.
+support. Those references are not build pins: Thorch follows the maintained
+component revisions recorded in generated provenance files.
 
 ## Firmware
 
