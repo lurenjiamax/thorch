@@ -469,6 +469,11 @@ def write_durable(path: Path, data: bytes) -> None:
 
 def command_validate(args: argparse.Namespace) -> None:
     boot = BootImage.read(args.boot_image)
+    if args.crypto_template:
+        template = BootImage.read(args.crypto_template)
+        for token in template.command_line_tokens:
+            if token.startswith("qcom_ice.") and token not in boot.command_line_tokens:
+                raise BootImageError(f"Boot image lost template crypto argument: {token}")
     if args.expect_root_uuid is not None:
         boot.require_root_uuid(args.expect_root_uuid)
     image, dtbs = validate_boot(
@@ -516,6 +521,10 @@ def command_prepare_repack(args: argparse.Namespace) -> None:
     outdir = Path(args.output_directory)
     outdir.mkdir(parents=True, exist_ok=True)
     write_durable(outdir / "kernel", boot.kernel_payload)
+    (outdir / "crypto-cmdline").write_text(
+        "\n".join(token for token in boot.command_line_tokens
+                  if token.startswith("qcom_ice.")), encoding="ascii"
+    )
     if boot.second:
         write_durable(outdir / "second", boot.second)
     (outdir / "bootimg.env").write_text(
@@ -548,6 +557,23 @@ def command_extract_kernel(args: argparse.Namespace) -> None:
 
 def command_replace_kernel(args: argparse.Namespace) -> None:
     template = BootImage.read(args.template)
+    if args.append_cmdline:
+        tokens = list(template.command_line_tokens)
+        for token in args.append_cmdline:
+            if not token or any(char.isspace() for char in token):
+                raise BootImageError("append-cmdline requires one argument token")
+            key = token.split("=", 1)[0]
+            if any(item.split("=", 1)[0] == key and item != token for item in tokens):
+                raise BootImageError(f"conflicting existing kernel argument: {key}")
+            if token not in tokens:
+                tokens.append(token)
+        command_line = " ".join(tokens).encode("ascii")
+        if len(command_line) >= 512:
+            raise BootImageError("Thor primary command line exceeds 511 bytes; review template")
+        patched = bytearray(template.data)
+        patched[64:576] = command_line.ljust(512, b"\0")
+        patched[608:1632] = bytes(1024)
+        template = BootImage(template.path, bytes(patched))
     image = Path(args.image).read_bytes()
     data = build_replaced_kernel(template, image, [Path(item) for item in args.dtb])
     write_durable(Path(args.output), data)
@@ -580,6 +606,7 @@ def parser() -> argparse.ArgumentParser:
     validate = subcommands.add_parser("validate", help="validate a Thorch boot image")
     validate.add_argument("boot_image")
     validate.add_argument("--require-cmdline", action="append", default=[])
+    validate.add_argument("--crypto-template", help="require the template's ICE arguments")
     validate.add_argument("--allow-raw-kernel", action="store_true")
     validate.add_argument("--require-symbols", action="store_true")
     validate.add_argument("--require-thor", action="store_true")
@@ -616,6 +643,7 @@ def parser() -> argparse.ArgumentParser:
     replace.add_argument("image")
     replace.add_argument("output")
     replace.add_argument("dtb", nargs="+")
+    replace.add_argument("--append-cmdline", action="append", default=[])
     replace.set_defaults(function=command_replace_kernel)
 
     config = subcommands.add_parser(

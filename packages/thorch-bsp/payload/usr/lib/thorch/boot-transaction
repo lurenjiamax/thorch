@@ -442,6 +442,8 @@ required_backup_kb() {
   fi
   for path in \
     "${boot_dir}/KERNEL" \
+    "${boot_dir}/dtbs" \
+    "${boot_dir}/loader" \
     "${boot_dir}/initramfs-linux-thorch.img" \
     "${boot_dir}/initramfs-linux-thorch-fallback.img"; do
     [[ -e "${path}" ]] || continue
@@ -509,6 +511,9 @@ prepare_transaction() {
       fail "unable to retain ${boot_dir}/${old}"
       return 1
     fi
+  done
+  for old in dtbs loader; do
+    [[ ! -d "${boot_dir}/${old}" ]] || cp -a "${boot_dir}/${old}" "${staging}/boot/" || return 1
   done
   if ! cp -a "${module_dir}" "${staging}/modules/${release}"; then
     fail "unable to retain modules for ${release}"
@@ -617,6 +622,14 @@ restore_transaction() {
     return 1
   fi
   # Restore KERNEL last, after its matching initramfs and modules are live.
+  for file in dtbs/qcs8550-ayn-thor.dtb loader/entries/thorch.conf; do
+    if [[ -f "${rollback_dir}/boot/${file}" ]]; then
+      install -d "$(dirname "${boot_dir}/${file}")"
+      atomic_copy "${rollback_dir}/boot/${file}" "${boot_dir}/${file}" || return 1
+    else
+      rm -f "${boot_dir}/${file}"
+    fi
+  done
   for file in initramfs-linux-thorch.img initramfs-linux-thorch-fallback.img KERNEL.previous KERNEL; do
     [[ -f "${rollback_dir}/boot/${file}" ]] || continue
     if ! atomic_copy "${rollback_dir}/boot/${file}" "${boot_dir}/${file}"; then
