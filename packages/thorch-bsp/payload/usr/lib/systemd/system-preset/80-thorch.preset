@@ -1,5 +1,5 @@
 enable thorch-boot-confirm.service
-enable thorch-debug-report.service
+disable thorch-debug-report.service
 enable thorch-fancontrol.service
 enable thorch-hw-defaults.service
 enable thorch-inputd.service

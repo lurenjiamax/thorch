@@ -22,7 +22,6 @@ fail() {
 
 for specification in \
   "${bsp_preset}:thorch-boot-confirm.service" \
-  "${bsp_preset}:thorch-debug-report.service" \
   "${bsp_preset}:thorch-fancontrol.service" \
   "${bsp_preset}:thorch-hw-defaults.service" \
   "${bsp_preset}:thorch-inputd.service" \
@@ -43,6 +42,7 @@ for specification in \
 done
 
 for unit in \
+  thorch-debug-report.service \
   systemd-networkd.service \
   systemd-networkd-wait-online.service \
   systemd-networkd.socket \

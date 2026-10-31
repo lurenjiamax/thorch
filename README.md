@@ -322,9 +322,9 @@ Connect the Thor to a Linux host over USB-C and use the selected username:
 ssh <username>@10.66.0.1
 ```
 
-Each boot writes
-`/boot/thorch-debug-report.txt` so a failed Wi-Fi/touch test can be inspected by
-moving the SD card back to the build host.
+The debug report service is disabled by default. Run
+`sudo systemctl start thorch-debug-report.service` to write
+`/boot/thorch-debug-report.txt` for inspection from the build host.
 
 If the device reports `no match found for DTB!`, it is still in the bootloader;
 SSH will not be available. That usually means the top-level `/KERNEL` on the FAT
