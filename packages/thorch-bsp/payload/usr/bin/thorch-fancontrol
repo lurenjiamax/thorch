@@ -312,7 +312,6 @@ apply_current_pwm() {
   if [[ "${force}" == "1" || "${bucket}" != "${last_bucket}" ]]; then
     write_pwm "${speed}"
     last_bucket="${bucket}"
-    log "temperature ${temp} mC, setting fan PWM ${speed}"
   fi
 }
 
