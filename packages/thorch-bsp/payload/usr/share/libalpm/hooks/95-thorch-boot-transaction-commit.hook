@@ -3,6 +3,7 @@ Operation = Install
 Operation = Upgrade
 Type = Package
 Target = linux-thorch
+Target = linux-thorch-headers
 Target = mkinitcpio
 Target = thorch-bsp
 Target = mkinitcpio-git

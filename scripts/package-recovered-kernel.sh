@@ -39,7 +39,7 @@ done
 } > "$out/PROVENANCE"
 cp /etc/makepkg.conf "$out/makepkg.conf"
 printf '\nCARCH=aarch64\n' >> "$out/makepkg.conf"
-export THORCH_ROCKNIX_KERNEL_DIR="$out" THORCH_TME_MODULE_DIR="$tme"
+export THORCH_ROCKNIX_KERNEL_DIR="$out" THORCH_TME_SOURCE_DIR="$root/tme-src"
 export THORCH_BOOT_IMAGE_TOOL="$boot_tool"
 for package in linux-thorch thorch-tme-modules; do
   cp -a "$root/packages/$package" "$out/packages/"

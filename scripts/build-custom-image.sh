@@ -86,7 +86,7 @@ bash scripts/build-image.sh --skip-package-build
 bash scripts/check-custom-rootfs.sh "$root/build/image-rootfs"
 bash scripts/check-thorch-image.sh "$root/output/thorch-arch-aarch64.img"
 # Optional diagnostics is a separate release asset, never an image package.
-package "$root/dump-src/packaging" THORCH_DUMP_MODULE="$work/dump-module/thorch-dump-watchdog.ko"
+package "$root/dump-src/packaging"
 cp output/custom-sources.json "$out/SOURCES.json"
 cp output/custom-kernel/PROVENANCE output/custom-kernel/TME-PROVENANCE "$out/"
 cp docs/custom-image-install.md "$out/INSTALL.md"

@@ -12,6 +12,13 @@ applying patches or rewriting source. Kernel output goes to
 `M` and `MO`. Edit maintained sources directly; retain upstream licensing and
 provenance. Runtime versions come from the fixed package recipes.
 
+TME and optional dump packages ship maintained module source with DKMS metadata,
+not release-bound `.ko` files. Their recipes live in the component repositories.
+Install `linux-thorch-headers` alongside the kernel; package hooks rebuild the
+modules for the new release. The boot transaction also checks required DKMS
+modules before generating initramfs and publishing a boot payload, restoring the
+previous payload if preparation fails. Dump installation never enables capture.
+
 Repository boundaries:
 
 | Location | Maintained content |

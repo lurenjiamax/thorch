@@ -49,7 +49,7 @@ python scripts/build-tme-modules.py --source kernel-src \
   --build build/kernel-build --output build/tme-modules
 cp -a packages/thorch-tme-modules "$work/"
 chown -R builder:builder "$work/thorch-tme-modules"
-runuser -u builder -- env THORCH_TME_MODULE_DIR="$root/build/tme-modules" \
+runuser -u builder -- env THORCH_TME_SOURCE_DIR="$root/tme-src" \
   bash -c 'cd "$1/thorch-tme-modules"; makepkg --config "$1/makepkg.conf" --nodeps --noconfirm --cleanbuild' bash "$work"
 mapfile -t module_packages < <(find "$work/thorch-tme-modules" -maxdepth 1 -name '*.pkg.tar.zst' -type f)
 [[ ${#module_packages[@]} == 1 ]] || { echo 'Expected one module package' >&2; exit 1; }

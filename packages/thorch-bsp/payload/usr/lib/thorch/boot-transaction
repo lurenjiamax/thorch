@@ -721,6 +721,26 @@ root_identity() {
   printf '%s\n%s\n' "${uuid}" "${fstype}"
 }
 
+prepare_dkms_modules() {
+  local release="$1" module
+  local -a required=()
+  if compgen -G "${root_prefix}/usr/src/thorch-tme-*/dkms.conf" >/dev/null; then
+    required+=(aynthor_qmp aynthor_tme tme_overlay_loader)
+  fi
+  if compgen -G "${root_prefix}/usr/src/thorch-dump-debug-*/dkms.conf" >/dev/null; then
+    required+=(thorch-dump-watchdog)
+  fi
+  (( ${#required[@]} )) || return 0
+  command -v dkms >/dev/null || { fail 'DKMS source installed but dkms is unavailable'; return 1; }
+  dkms autoinstall -k "${release}" || return 1
+  for module in "${required[@]}"; do
+    modinfo -k "${release}" "${module}" >/dev/null || {
+      fail "required DKMS module ${module} is missing for ${release}"
+      return 1
+    }
+  done
+}
+
 commit_transaction() {
   local identity root_uuid root_fstype release failure=""
   if [[ ! -f "${ready_file}" ]]; then
@@ -741,7 +761,10 @@ commit_transaction() {
   root_uuid="${identity%%$'\n'*}"
   root_fstype="${identity#*$'\n'}"
 
-  if [[ ! -x "${mkinitcpio_command}" ]]; then
+  release="$(target_release)"
+  if [[ -z "${release}" ]] || ! prepare_dkms_modules "${release}"; then
+    failure="target kernel DKMS modules could not be prepared"
+  elif [[ ! -x "${mkinitcpio_command}" ]]; then
     failure="missing mkinitcpio command: ${mkinitcpio_command}"
   elif ! "${mkinitcpio_command}" -P; then
     failure="mkinitcpio failed"
