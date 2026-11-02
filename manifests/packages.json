@@ -5,6 +5,12 @@
   },
   "packages": [
     {
+      "name": "powerdevil",
+      "path": "packages/powerdevil",
+      "profiles": ["build", "image", "release"],
+      "build_inputs": ["THORCH_POWERDEVIL_SOURCE_DIR"]
+    },
+    {
       "name": "thorch-bsp",
       "path": "packages/thorch-bsp",
       "profiles": ["build", "image", "release"],
@@ -32,7 +38,7 @@
       "name": "thorch-tme-modules",
       "path": "packages/thorch-tme-modules",
       "profiles": ["build", "release"],
-      "build_inputs": []
+      "build_inputs": ["THORCH_TME_SOURCE_DIR"]
     },
     {
       "name": "thorch-firmware-rocknix",

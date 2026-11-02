@@ -7,3 +7,7 @@
 [submodule "userdata/third_party/minkipc"]
 	path = userdata/third_party/minkipc
 	url = https://github.com/qualcomm/minkipc.git
+[submodule "sources/powerdevil"]
+	path = sources/powerdevil
+	url = https://github.com/lurenjiamax/powerdevil.git
+	branch = main

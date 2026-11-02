@@ -17,8 +17,8 @@ id builder >/dev/null 2>&1 || useradd --create-home builder
 cp /etc/makepkg.conf "$work/makepkg.conf"
 printf '\nPKGEXT=".pkg.tar.zst"\nBUILDDIR="%s/work"\nPKGDEST="%s"\n' "$work" "$out" >> "$work/makepkg.conf"
 chown -R builder:builder "$work" "$out"
-for component in inputplumber-src motion-src hexagonrpc-src libssc-src dump-src; do
-  [[ -d "$root/$component/.git" ]] || { echo "Missing checkout: $component" >&2; exit 1; }
+for component in inputplumber-src motion-src hexagonrpc-src libssc-src dump-src sources/powerdevil; do
+  [[ -e "$root/$component/.git" ]] || { echo "Missing checkout: $component" >&2; exit 1; }
   git config --global --add safe.directory "$root/$component"
   runuser -u builder -- git config --global --add safe.directory "$root/$component"
   # makepkg deliberately disables global Git config. Its dedicated system
