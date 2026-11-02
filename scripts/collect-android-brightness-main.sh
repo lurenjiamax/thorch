@@ -29,39 +29,50 @@ snapshot() {
     done
     echo "Saved: $sample"
 }
-primary=$(settings get system screen_brightness) || exit 1
-secondary=$(settings get system dual_screen_brightness_level) || exit 1
-mode=$(settings get system screen_brightness_mode) || exit 1
-case "$primary:$secondary:$mode" in
-    *null*|*[!0-9:]*) echo 'Expected numeric Thor brightness settings; stopping without changes.' >&2; exit 1 ;;
-esac
 out="${1:-/sdcard/Download/thorch-brightness}/auto-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$out" || exit 1
-printf 'screen_brightness=%s\ndual_screen_brightness_level=%s\nscreen_brightness_mode=%s\n' \
-    "$primary" "$secondary" "$mode" > "$out/original-settings.txt"
+exec > "$out/run.log" 2>&1
+echo 'Capture mode: direct panel backlight sweep, not Android slider calibration'
+for panel in panel0-backlight panel1-backlight; do
+    node="/sys/class/backlight/$panel"
+    [ -w "$node/brightness" ] || { echo "Not writable: $node/brightness"; exit 1; }
+    value=$(cat "$node/brightness") || exit 1
+    maximum=$(cat "$node/max_brightness") || exit 1
+    case "$value" in ''|*[!0-9]*) echo 'Invalid saved brightness'; exit 1 ;; esac
+    case "$maximum" in ''|*[!0-9]*|0) echo 'Invalid maximum'; exit 1 ;; esac
+    printf '%s %s %s\n' "$panel" "$value" "$maximum" >> "$out/original-backlights.txt"
+done
 restore() {
-    settings put system screen_brightness "$primary"
-    settings put system dual_screen_brightness_level "$secondary"
-    settings put system screen_brightness_mode "$mode"
-    echo "Restored original brightness settings. Results: $out"
+    while read -r panel value maximum; do
+        echo "$value" > "/sys/class/backlight/$panel/brightness" || echo "RESTORE FAILED: $panel"
+        echo "Restored $panel requested=$value readback=$(cat /sys/class/backlight/$panel/brightness)"
+    done < "$out/original-backlights.txt"
+    echo "Results: $out"
 }
 trap restore EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 getprop > "$out/device-properties.txt" 2>&1
 snapshot initial || exit 1
-settings put system screen_brightness_mode 0 || exit 1
 echo 'Sweeping both screens automatically. Keep screens awake; do not adjust sliders.'
-echo 'Primary uses 0..255; Thor secondary setting uses percent 0..100.'
-echo 'Raw panel values are collected to verify these logical settings take effect.'
+echo 'Each panel is scaled against its own sysfs maximum. Android settings are unchanged.'
 # Avoid a zero setting that may blank the UI; include descending points for hysteresis.
 step=0
 for percent in 1 10 25 50 75 100 75 50 25 10 1; do
     step=$((step + 1))
-    raw=$(( (percent * 255 + 50) / 100 ))
-    settings put system screen_brightness "$raw" || exit 1
-    settings put system dual_screen_brightness_level "$percent" || exit 1
-    echo "Requested $percent%: primary=$raw secondary=$percent"
+    while read -r panel value maximum; do
+        raw=$(( (percent * maximum + 50) / 100 ))
+        echo "$raw" > "/sys/class/backlight/$panel/brightness" || exit 1
+        echo "Requested $panel $percent% raw=$raw"
+    done < "$out/original-backlights.txt"
     sleep 3
+    while read -r panel value maximum; do
+        expected=$(( (percent * maximum + 50) / 100 ))
+        actual=$(cat "/sys/class/backlight/$panel/brightness") || exit 1
+        [ "$actual" = "$expected" ] || {
+            echo "Brightness did not hold: $panel expected=$expected readback=$actual; stopping"
+            exit 1
+        }
+    done < "$out/original-backlights.txt"
     snapshot "${step}-${percent}pct" || exit 1
 done
