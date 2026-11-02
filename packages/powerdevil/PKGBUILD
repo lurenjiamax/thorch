@@ -1,6 +1,6 @@
 # Distribution identity; implementation and recipe live in the component fork.
 pkgname=powerdevil
 pkgver=6.8.2
-pkgrel=3
+pkgrel=4
 THORCH_POWERDEVIL_SOURCE_DIR="${THORCH_POWERDEVIL_SOURCE_DIR:-${startdir}/../../sources/powerdevil}"
 source "$THORCH_POWERDEVIL_SOURCE_DIR/packaging/PKGBUILD"
