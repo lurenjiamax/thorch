@@ -1,3 +1,7 @@
 # Compatibility entry; component packaging is maintained with the TME source.
+# Static identity is also consumed by the distribution's package manifest.
+pkgname=thorch-tme-modules
+pkgver=7.1.2
+pkgrel=42
 THORCH_TME_SOURCE_DIR="${THORCH_TME_SOURCE_DIR:-${startdir}/../../tme-src}"
 source "$THORCH_TME_SOURCE_DIR/packaging/PKGBUILD"
