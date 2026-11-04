@@ -65,6 +65,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout PowerDevil package source
+        run: git submodule update --init -- sources/powerdevil
+
+      - name: Checkout TME package source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: lurenjiamax/thorch-tme
+          ref: master
+          path: tme-src
+
       - name: Prepare rootless workspace
         run: |
           set -euo pipefail
