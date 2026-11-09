@@ -114,7 +114,7 @@ jobs:
               output/custom-image/thorch-tme-modules-*.pkg.tar.zst \
               output/custom-kernel/linux-thorch-*.pkg.tar.zst \
               output/custom-kernel/thorch-tme-modules-*.pkg.tar.zst \
-              output/repo/thorch-mesa-*.pkg.tar.zst; do
+              output/repo/thorch-mesa-*.pkg.tar.*; do
             cp "$package" output/install-packages/
           done
           if [[ -f output/custom-sources.json ]]; then
