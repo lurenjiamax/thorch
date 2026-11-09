@@ -685,7 +685,7 @@ sync_package_inputs() {
     [[ -n "${input}" ]] || continue
     prefix="${input%%/*}"
     case "${prefix}" in
-      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR)
+      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
         base="${!prefix}"
         if [[ "${prefix}" == "${input}" ]]; then
           rest=""
