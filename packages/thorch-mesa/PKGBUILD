@@ -76,6 +76,7 @@ build() {
     --buildtype=plain \
     -Db_ndebug=true \
     -Db_lto=true \
+    -Dallow-broken-lto=true \
     -Dplatforms=x11,wayland \
     -Dglx=dri \
     -Degl=enabled \
