@@ -104,6 +104,29 @@ jobs:
                bash scripts/build-custom-image.sh
             '
           sudo chown -R "$(id -u):$(id -g)" output
+      - name: Retain completed kernel and Mesa packages
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p output/install-packages
+          shopt -s nullglob
+          for package in output/custom-image/linux-thorch-*.pkg.tar.zst \
+              output/custom-image/thorch-tme-modules-*.pkg.tar.zst \
+              output/custom-kernel/linux-thorch-*.pkg.tar.zst \
+              output/custom-kernel/thorch-tme-modules-*.pkg.tar.zst \
+              output/repo/thorch-mesa-*.pkg.tar.zst; do
+            cp "$package" output/install-packages/
+          done
+          if [[ -f output/custom-sources.json ]]; then
+            cp output/custom-sources.json output/install-packages/SOURCES.json
+          fi
+      - name: Upload completed installation packages
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: thor-install-packages
+          path: output/install-packages/
+          if-no-files-found: warn
       - name: Publish custom image and matching package set
         run: |
           set -euo pipefail
