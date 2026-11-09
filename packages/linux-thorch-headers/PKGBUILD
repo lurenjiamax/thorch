@@ -1,11 +1,11 @@
 # Maintainer: Thorch contributors
 pkgname=linux-thorch-headers
 pkgver=7.1.2
-pkgrel=40
+pkgrel=42
 pkgdesc='Matching ARM64 external-module build environment for linux-thorch'
 arch=(aarch64)
 license=(GPL-2.0-only)
-depends=("linux-thorch=${pkgver}-${pkgrel}" gcc make bc libelf pahole python)
+depends=("linux-thorch=${pkgver}-${pkgrel}" clang llvm lld make bc libelf pahole python)
 options=('!strip' '!debug')
 
 package() {

@@ -7,7 +7,7 @@
 
 pkgname=thorch-mesa
 pkgver=26.1.6
-pkgrel=1
+pkgrel=2
 pkgdesc='Mesa 26.1.6 trimmed and tuned for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://www.mesa3d.org/'
@@ -54,7 +54,7 @@ provides=(
 )
 conflicts=(mesa vulkan-freedreno)
 replaces=(mesa vulkan-freedreno)
-options=(!lto)
+options=(lto)
 source=("https://archive.mesa3d.org/mesa-${pkgver}.tar.xz")
 sha256sums=('5296b88a0f1e012e2cb9ada150a2bbadf728ca81e5a4fb2ab43c83a4d2158606')
 
@@ -75,6 +75,7 @@ build() {
     --prefix=/usr \
     --buildtype=plain \
     -Db_ndebug=true \
+    -Db_lto=true \
     -Dplatforms=x11,wayland \
     -Dglx=dri \
     -Degl=enabled \

@@ -255,6 +255,7 @@ resolve_input_path() {
 input_fingerprint_for() {
   local pkg="$1" input_lines input resolved
   local -a fingerprint_args=()
+  fingerprint_args+=("config/makepkg.conf" "${root}/config/makepkg.conf")
 
   input_lines="$(python3 "${manifest_cli}" --repo "${root}" inputs "${pkg}")" || \
     return 1
@@ -734,6 +735,7 @@ reset_package_root() {
   rm -rf "${build_root}"
   install -d "${build_root}"
   cp -a --reflink=auto "${base_root}/." "${build_root}/"
+  install -Dm644 "${root}/config/makepkg.conf" "${build_root}/etc/thorch-makepkg.conf"
   configure_chroot_resolver "${build_root}"
   stage_local_build_repo
   sync_package_inputs "${pkg}"
@@ -768,7 +770,7 @@ for pkg in "${packages[@]}"; do
   run_chroot "chown -R builder:builder /thorch-work/${pkg} /thorch-pkgdest"
   package_env="env MAKEFLAGS=-j${THORCH_PACKAGE_JOBS} CMAKE_BUILD_PARALLEL_LEVEL=${THORCH_PACKAGE_JOBS} PKGDEST=/thorch-pkgdest THORCH_ROCKNIX_DIR=/thorch-input/${THORCH_ROCKNIX_DIR} THORCH_FIRMWARE_DIR=/thorch-input/${THORCH_FIRMWARE_DIR} THORCH_ROCKNIX_KERNEL_DIR=/thorch-input/${THORCH_ROCKNIX_KERNEL_DIR} THORCH_ROCKNIX_RUNTIME_DIR=/thorch-input/${THORCH_ROCKNIX_RUNTIME_DIR}"
   package_env+=" THORCH_POWERDEVIL_SOURCE_DIR=/thorch-input/${THORCH_POWERDEVIL_SOURCE_DIR} THORCH_TME_SOURCE_DIR=/thorch-input/${THORCH_TME_SOURCE_DIR}"
-  run_chroot "cd /thorch-work/${pkg} && su builder -c '${package_env} makepkg --printsrcinfo > .SRCINFO'"
+  run_chroot "cd /thorch-work/${pkg} && su builder -c '${package_env} makepkg --config /etc/thorch-makepkg.conf --printsrcinfo > .SRCINFO'"
   run_chroot "test -s /thorch-work/${pkg}/.SRCINFO && grep -Eq '^[[:space:]]*pkgname = ${pkg}$' /thorch-work/${pkg}/.SRCINFO" || \
     die "makepkg generated invalid .SRCINFO for ${pkg}"
   mapfile -t package_dependencies < <(
@@ -778,7 +780,7 @@ for pkg in "${packages[@]}"; do
   if (( ${#package_dependencies[@]} > 0 )); then
     run_chroot "pacman -S --noconfirm --needed -- ${package_dependencies[*]}"
   fi
-  run_chroot "cd /thorch-work/${pkg} && su builder -c '${package_env} makepkg --noconfirm --cleanbuild'"
+  run_chroot "cd /thorch-work/${pkg} && su builder -c '${package_env} makepkg --config /etc/thorch-makepkg.conf --noconfirm --cleanbuild'"
   current_inputs_sha256="$(input_fingerprint_for "${pkg}")"
   [[ "${current_inputs_sha256}" == "${package_inputs_sha256}" ]] || \
     die "declared inputs changed while building ${pkg}; discard the artifact and retry"

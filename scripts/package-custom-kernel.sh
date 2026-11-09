@@ -24,7 +24,7 @@ id builder >/dev/null 2>&1 || useradd --create-home builder
 mkdir -p "$root/build"
 work=$(mktemp -d "$root/build/kernel-package-XXXXXXXX")
 cp -a packages/linux-thorch "$work/"
-cp /etc/makepkg.conf "$work/makepkg.conf"
+cp "$root/config/makepkg.conf" "$work/makepkg.conf"
 printf '\nPKGEXT=".pkg.tar.zst"\n' >> "$work/makepkg.conf"
 chown -R builder:builder "$work"
 chmod 755 "$work"

@@ -14,7 +14,7 @@ repo="$root/$THORCH_LOCAL_REPO_DIR"
 mkdir -p "$out" "$work" "$repo"
 pacman -S --noconfirm --needed clang libevdev libiio json-c glib2 libqmi protobuf protobuf-c pkgconf
 id builder >/dev/null 2>&1 || useradd --create-home builder
-cp /etc/makepkg.conf "$work/makepkg.conf"
+cp "$root/config/makepkg.conf" "$work/makepkg.conf"
 printf '\nPKGEXT=".pkg.tar.zst"\nBUILDDIR="%s/work"\nPKGDEST="%s"\n' "$work" "$out" >> "$work/makepkg.conf"
 chown -R builder:builder "$work" "$out"
 for component in inputplumber-src motion-src hexagonrpc-src libssc-src dump-src sources/powerdevil; do

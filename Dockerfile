@@ -20,6 +20,7 @@ RUN sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf \
       binutils \
       bison \
       btrfs-progs \
+      clang \
       cpio \
       curl \
       desktop-file-utils \
@@ -35,6 +36,8 @@ RUN sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf \
       kmod \
       libarchive \
       libelf \
+      lld \
+      llvm \
       mtools \
       mkinitcpio \
       openssl \
