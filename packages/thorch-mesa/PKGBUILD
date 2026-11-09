@@ -7,7 +7,7 @@
 
 pkgname=thorch-mesa
 pkgver=26.1.6
-pkgrel=2
+pkgrel=3
 pkgdesc='Mesa 26.1.6 trimmed and tuned for AYN Thor / Qualcomm SM8550'
 arch=(aarch64)
 url='https://www.mesa3d.org/'
