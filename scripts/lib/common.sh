@@ -337,10 +337,28 @@ verify_alarm_rootfs() {
 
 download_alarm_rootfs() {
   local rootfs_tar="$1"
+  local url mirror
 
   log "downloading Arch Linux ARM rootfs"
   install -d "$(dirname "${rootfs_tar}")"
-  curl -fL --retry 3 -o "${rootfs_tar}" "${ALARM_ROOTFS_URL}"
+  if curl -fL --connect-timeout 20 --retry 2 -o "${rootfs_tar}" "${ALARM_ROOTFS_URL}"; then
+    return 0
+  fi
+  # Custom URLs/signatures remain authoritative. Only substitute configured
+  # mirrors for the standard archive and its matching detached signature.
+  [[ "${ALARM_ROOTFS_SIG_URL}" == "${ALARM_ROOTFS_URL}.sig" ]] || return 1
+  for mirror in ${ALARM_MIRRORS}; do
+    url="${mirror%/}/os/ArchLinuxARM-aarch64-latest.tar.gz"
+    [[ "$url" != "$ALARM_ROOTFS_URL" ]] || continue
+    [[ "$ALARM_ROOTFS_URL" == */os/ArchLinuxARM-aarch64-latest.tar.gz ]] || return 1
+    log "trying Arch Linux ARM rootfs mirror: $mirror"
+    if curl -fL --connect-timeout 20 --retry 2 -o "${rootfs_tar}" "$url"; then
+      ALARM_ROOTFS_URL="$url"
+      ALARM_ROOTFS_SIG_URL="${url}.sig"
+      return 0
+    fi
+  done
+  return 1
 }
 
 ensure_alarm_rootfs() {
