@@ -143,7 +143,12 @@ jobs:
             if (( $(stat -c %s "$image") >= 2147483648 )); then
               split --bytes=1900M --numeric-suffixes=0 --suffix-length=3 "$image" "${image}.part-"
               name=${image##*/}
-              printf '\n## Split image download\n\nDownload every `%s.part-*` file into one directory, then run:\n\n```sh\ncat %s.part-* > %s\nsha256sum -c SHA256SUMS\n```\n\nThe original image checksum remains in SHA256SUMS. Verify before decompressing or flashing.\n' "$name" "$name" "$name" >> output/custom-image/INSTALL.md
+              {
+                printf '\n## Split image download\n\n'
+                printf 'Download every `%s.part-*` file into one directory, then run:\n\n' "$name"
+                printf '```sh\ncat %s.part-* > %s\nsha256sum -c SHA256SUMS\n```\n\n' "$name" "$name"
+                printf 'The original image checksum remains in SHA256SUMS. Verify before decompressing or flashing.\n'
+              } >> output/custom-image/INSTALL.md
             fi
           done
           (cd output/custom-image; shopt -s nullglob; parts=(*.img.zst.part-*); if ((${#parts[@]})); then sha256sum "${parts[@]}" >> SHA256SUMS; fi)
