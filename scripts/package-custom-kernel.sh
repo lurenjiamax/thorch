@@ -36,10 +36,11 @@ mapfile -t packages < <(find "$work/linux-thorch" -maxdepth 1 -name '*.pkg.tar.z
 [[ ${#packages[@]} == 1 ]] || { echo 'Expected one kernel package' >&2; exit 1; }
 pkg=${packages[0]}
 bsdtar -xOf "$pkg" .PKGINFO > "$output/PKGINFO"
-version=$(sed -n 's/^pkgver = //p' "$output/PKGINFO")
-expected=$(bash -c 'source "$1"; printf "%s-%s" "$pkgver" "$pkgrel"' bash packages/linux-thorch/PKGBUILD)
-release="${expected%-*}-thorch${expected##*-}"
-[[ "$version" == "$expected" ]] || { echo "Unexpected version: $version" >&2; exit 1; }
+package_version=$(sed -n 's/^pkgver = //p' "$output/PKGINFO")
+expected=$(bash -c 'source "$1"; printf "%s%s-%s" "${epoch:+${epoch}:}" "$pkgver" "$pkgrel"' bash packages/linux-thorch/PKGBUILD)
+version="${package_version#*:}"
+release="${version%-*}-thorch${version##*-}"
+[[ "$package_version" == "$expected" ]] || { echo "Unexpected version: $package_version" >&2; exit 1; }
 grep -qx 'arch = aarch64' "$output/PKGINFO"
 bsdtar -tf "$pkg" > "$output/package-files.txt"
 grep -Fq "usr/lib/modules/$release/kernel/drivers/md/dm-default-key.ko" "$output/package-files.txt"
