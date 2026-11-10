@@ -15,6 +15,10 @@ package() {
   local dest="$pkgdir/usr/lib/modules/$release/build"
   [[ "$(cat "$build/include/config/kernel.release")" == "$release" ]] || return 1
   [[ -s "$build/Module.symvers" ]] || return 1
+  [[ -s "$build/scripts/module.lds" ]] || {
+    echo 'Headers require modules_prepare: missing scripts/module.lds' >&2
+    return 1
+  }
   # Native host utilities are required by modules built on the device.
   readelf -h "$build/scripts/basic/fixdep" | grep -q 'Machine:.*AArch64' || {
     echo 'Headers must be packaged from a native ARM64 kernel build' >&2
