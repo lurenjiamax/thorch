@@ -1,0 +1,22 @@
+# Vendor sensor runtime seeds; no device-specific calibration or identifiers.
+pkgname=thorch-motion-firmware
+pkgver=1
+pkgrel=1
+pkgdesc='Proprietary AYN Thor sensor DSP runtime seeds and vendor configuration'
+arch=(aarch64)
+license=(custom:proprietary-firmware)
+depends=('thorch-firmware-rocknix>=1-15')
+options=('!strip' '!debug')
+_bundle="${THORCH_SENSOR_FIRMWARE_DIR:-${startdir}/../../vendor/thor-sensor-firmware}"
+package() {
+  [[ -s "$_bundle/NOTICE.txt" && -s "$_bundle/SOURCE-SHA256" && \
+     -s "$_bundle/runtime/dsp/adsp/fastrpc_shell_0" ]] || {
+    echo 'Run scripts/sync-thor-sensor-firmware.py first' >&2; return 1;
+  }
+  [[ ! -e "$_bundle/runtime/socinfo" && ! -e "$_bundle/runtime/sensors/registry" ]] || return 1
+  install -d "$pkgdir/usr/share/thorch-motion/vendor-runtime"
+  cp -a "$_bundle/runtime/." "$pkgdir/usr/share/thorch-motion/vendor-runtime/"
+  install -Dm644 "$_bundle/NOTICE.txt" "$pkgdir/usr/share/licenses/$pkgname/NOTICE.txt"
+  install -Dm644 "$_bundle/SOURCE-SHA256" "$pkgdir/usr/share/licenses/$pkgname/SOURCE-SHA256"
+  install -Dm644 "$startdir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

@@ -81,7 +81,7 @@ mapfile -t remaining < <(python3 scripts/package-manifest.py --repo "$root" prof
 remaining_csv=$(IFS=,; printf '%s' "${remaining[*]}")
 bash scripts/build-packages.sh --packages "$remaining_csv"
 cp "$repo"/*.pkg.tar.zst "$out/"
-export THORCH_IMAGE_EXTRA_PACKAGES='linux-thorch-headers thorch-tme-modules thorch-motion'
+export THORCH_IMAGE_EXTRA_PACKAGES='linux-thorch-headers thorch-tme-modules thorch-motion thorch-motion-firmware'
 bash scripts/build-image.sh --skip-package-build
 bash scripts/check-custom-rootfs.sh "$root/build/image-rootfs"
 bash scripts/check-thorch-image.sh "$root/output/thorch-arch-aarch64.img"

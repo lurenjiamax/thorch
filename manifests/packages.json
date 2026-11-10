@@ -44,7 +44,13 @@
       "name": "thorch-firmware-rocknix",
       "path": "packages/thorch-firmware-rocknix",
       "profiles": ["build", "image", "release"],
-      "build_inputs": ["THORCH_FIRMWARE_DIR", "THORCH_ROCKNIX_KERNEL_DIR"]
+      "build_inputs": ["THORCH_FIRMWARE_DIR", "THORCH_ROCKNIX_KERNEL_DIR", "THORCH_SENSOR_FIRMWARE_DIR"]
+    },
+    {
+      "name": "thorch-motion-firmware",
+      "path": "packages/thorch-motion-firmware",
+      "profiles": ["build", "image", "release"],
+      "build_inputs": ["THORCH_SENSOR_FIRMWARE_DIR"]
     },
     {
       "name": "thorch-mesa",

@@ -15,6 +15,7 @@
 /vendor/rocknix-kernel/
 /vendor/rocknix-runtime/
 /vendor/rocknix-sm8550/
+/vendor/thor-sensor-firmware/
 
 # Arch package build output.
 /packages/*/build/

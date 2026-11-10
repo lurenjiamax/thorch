@@ -1,0 +1,22 @@
+AYN Thor proprietary sensor / ADSP firmware notice
+
+The binary firmware, DSP executables and vendor sensor configuration in this
+bundle are proprietary components. Copyright and other rights remain with
+their respective original owners, including Qualcomm Technologies and the
+applicable device and sensor vendors. Thorch does not claim ownership of these
+components. The open-source licenses of Thorch, HexagonRPC and libssc do not
+relicense the vendor binaries or configuration.
+
+Source provenance: files retained on the development AYN Thor, whose installed
+firmware package records MaSieS4Fun/SteamOS-ARM-SM8550 revision
+3548c401e6d2193a8a9ba7ef08add7074ea53f9e as its motion reference source.
+This records provenance, not an independent verification of redistribution
+permission. This notice does not grant a license or substitute for the original
+owners' terms. Retain original notices and comply with applicable terms.
+
+Scope: Thor ADSP firmware segments, sensor DSP runtime executables and vendor
+sensor configuration. Not included: device keys, userdata, dumps, socinfo serial
+numbers, factory calibration, persisted sensor registry or runtime caches.
+Each owner's factory calibration must be provisioned separately; do not copy
+another device's calibration into an image. Firmware inclusion is not a claim
+that suspend/resume or automatic sensor provisioning is fully validated.

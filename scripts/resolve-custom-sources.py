@@ -26,13 +26,14 @@ def main():
         branch = config[f'{component}_SOURCE_BRANCH']
         if branch not in ('main', 'master'):
             raise ValueError(f'{component}: only main/master supported')
+        ref = config.get(f'{component}_SOURCE_REVISION', branch)
         revision = subprocess.check_output(
-            ['gh', 'api', f'repos/{repository}/commits/{branch}', '--jq', '.sha'],
+            ['gh', 'api', f'repos/{repository}/commits/{ref}', '--jq', '.sha'],
             text=True).strip()
         if len(revision) != 40 or any(c not in '0123456789abcdef' for c in revision):
             raise ValueError(f'{component}: invalid resolved revision')
         resolved[component.lower()] = {
-            'repository': repository, 'branch': branch, 'commit': revision}
+            'repository': repository, 'branch': branch, 'ref': ref, 'commit': revision}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(resolved, indent=2) + '\n')
     if args.github_output:

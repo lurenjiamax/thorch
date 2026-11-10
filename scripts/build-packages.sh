@@ -125,6 +125,7 @@ validate_relative_config_path() {
 for config_path_variable in \
   THORCH_LOCAL_REPO_DIR \
   THORCH_FIRMWARE_DIR \
+  THORCH_SENSOR_FIRMWARE_DIR \
   THORCH_ROCKNIX_DIR \
   THORCH_ROCKNIX_KERNEL_DIR \
   THORCH_ROCKNIX_RUNTIME_DIR; do
@@ -242,7 +243,7 @@ resolve_input_path() {
   fi
 
   case "${prefix}" in
-    THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
+    THORCH_SENSOR_FIRMWARE_DIR|THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
       value="${!prefix}"
       path="${value}${rest:+/${rest}}"
       ;;
@@ -410,7 +411,7 @@ validate_package_paths() {
     resolve_input_path "${input}" >/dev/null
     prefix="${input%%/*}"
     case "${prefix}" in
-      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
+      THORCH_SENSOR_FIRMWARE_DIR|THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
         if [[ "${prefix}" == "${input}" ]]; then
           rest=""
         else
@@ -510,7 +511,11 @@ if [[ "${needs_rocknix_sync}" -eq 1 ]]; then
   "${script_dir}/sync-rocknix-kernel.sh"
 fi
 source_sync_args=()
+if [[ " ${packages[*]} " == *" thorch-motion-firmware "* && " ${packages[*]} " != *" thorch-firmware-rocknix "* ]]; then
+  python3 "${script_dir}/sync-thor-sensor-firmware.py" --dest "${root}/${THORCH_SENSOR_FIRMWARE_DIR}"
+fi
 if [[ " ${packages[*]} " == *" thorch-firmware-rocknix "* ]]; then
+  python3 "${script_dir}/sync-thor-sensor-firmware.py" --dest "${root}/${THORCH_SENSOR_FIRMWARE_DIR}"
   source_sync_args+=(--with-firmware)
 fi
 if { { [[ " ${packages[*]} " == *" thorch-inputplumber "* ]] ||
@@ -685,7 +690,7 @@ sync_package_inputs() {
     [[ -n "${input}" ]] || continue
     prefix="${input%%/*}"
     case "${prefix}" in
-      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
+      THORCH_SENSOR_FIRMWARE_DIR|THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
         base="${!prefix}"
         if [[ "${prefix}" == "${input}" ]]; then
           rest=""
@@ -769,6 +774,7 @@ for pkg in "${packages[@]}"; do
   rsync -a "${root}/packages/${pkg}/" "${work_dir}/${pkg}/"
   run_chroot "chown -R builder:builder /thorch-work/${pkg} /thorch-pkgdest"
   package_env="env MAKEFLAGS=-j${THORCH_PACKAGE_JOBS} CMAKE_BUILD_PARALLEL_LEVEL=${THORCH_PACKAGE_JOBS} PKGDEST=/thorch-pkgdest THORCH_ROCKNIX_DIR=/thorch-input/${THORCH_ROCKNIX_DIR} THORCH_FIRMWARE_DIR=/thorch-input/${THORCH_FIRMWARE_DIR} THORCH_ROCKNIX_KERNEL_DIR=/thorch-input/${THORCH_ROCKNIX_KERNEL_DIR} THORCH_ROCKNIX_RUNTIME_DIR=/thorch-input/${THORCH_ROCKNIX_RUNTIME_DIR}"
+  package_env+=" THORCH_SENSOR_FIRMWARE_DIR=/thorch-input/${THORCH_SENSOR_FIRMWARE_DIR}"
   package_env+=" THORCH_POWERDEVIL_SOURCE_DIR=/thorch-input/${THORCH_POWERDEVIL_SOURCE_DIR} THORCH_TME_SOURCE_DIR=/thorch-input/${THORCH_TME_SOURCE_DIR}"
   package_env+=" THORCH_GAMESCOPE_SOURCE_DIR=/thorch-input/${THORCH_GAMESCOPE_SOURCE_DIR}"
   run_chroot "cd /thorch-work/${pkg} && su builder -c '${package_env} makepkg --config /etc/thorch-makepkg.conf --printsrcinfo > .SRCINFO'"

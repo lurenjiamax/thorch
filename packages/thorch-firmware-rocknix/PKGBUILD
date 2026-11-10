@@ -2,7 +2,7 @@
 
 pkgname=thorch-firmware-rocknix
 pkgver=1
-pkgrel=14
+pkgrel=15
 pkgdesc='Public and image-derived ROCKNIX SM8550 firmware packaged for Thorch'
 arch=(aarch64)
 url='https://github.com/ROCKNIX/distribution'
@@ -97,6 +97,16 @@ EOF
   if [[ -d "${_rocknix_kernel_dir}/usr/lib/firmware" ]]; then
     cp -a "${_rocknix_kernel_dir}/usr/lib/firmware/." "${pkgdir}/usr/lib/firmware/"
   fi
+  local sensors="${THORCH_SENSOR_FIRMWARE_DIR:-${startdir}/../../vendor/thor-sensor-firmware}"
+  [[ -s "$sensors/NOTICE.txt" && -s "$sensors/SOURCE-SHA256" ]] || {
+    echo 'Run scripts/sync-thor-sensor-firmware.py before packaging firmware' >&2
+    return 1
+  }
+  cp -a "$sensors/firmware/." "${pkgdir}/usr/lib/firmware/"
+  install -Dm644 "$sensors/NOTICE.txt" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/THOR-SENSOR-FIRMWARE-NOTICE.txt"
+  install -Dm644 "$sensors/SOURCE-SHA256" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/THOR-SENSOR-FIRMWARE-SHA256"
   if [[ ! -e "${pkgdir}/usr/lib/firmware/qcom/sm8550/AYN-Thor-tplg.bin" ]]; then
     ln -s AYN-Odin2-tplg.bin "${pkgdir}/usr/lib/firmware/qcom/sm8550/AYN-Thor-tplg.bin"
   fi

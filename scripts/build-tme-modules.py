@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Compile the maintained TME checkout without fetching or rewriting source."""
 import argparse
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -26,9 +27,14 @@ def main() -> None:
     if not (build / 'Module.symvers').is_file():
         parser.error('Compile the matching kernel first: missing Module.symvers')
     out.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env.pop('LLVM', None)
+    env.pop('LLVM_IAS', None)
+    cross = env.get('THORCH_KERNEL_CROSS_COMPILE',
+                    '' if os.uname().machine == 'aarch64' else 'aarch64-linux-gnu-')
     subprocess.run(['make', '-C', str(source), f'O={build}', 'ARCH=arm64',
-                    'LLVM=1', 'LOCALVERSION=', f'M={module_source}', f'MO={out}', 'modules'],
-                   check=True)
+                    f'CROSS_COMPILE={cross}', 'LOCALVERSION=',
+                    f'M={module_source}', f'MO={out}', 'modules'], check=True, env=env)
     subprocess.run(['dtc', '-@', '-I', 'dts', '-O', 'dtb', '-o',
                     str(out / 'tme-overlay.dtbo'),
                     str(module_source / 'tme-overlay.dts')], check=True)

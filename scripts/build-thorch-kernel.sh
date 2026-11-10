@@ -54,8 +54,16 @@ if (( !reuse )) || [[ ! -f "$build_dir/.config" ]]; then
 fi
 "$source_dir/scripts/config" --file "$build_dir/.config" \
   --set-str LOCALVERSION "-thorch${release##*-thorch}" --disable LOCALVERSION_AUTO
-args=(-C "$source_dir" O="$build_dir" ARCH=arm64 LLVM=1 CROSS_COMPILE="$cross_compile" LOCALVERSION=)
+# Match the hardware-accepted GCC40 configuration, not the Clang experiments.
+"$source_dir/scripts/config" --file "$build_dir/.config" \
+  --module IIO_CONFIGFS --set-val PSTORE_DEFAULT_KMSG_BYTES 10240
+unset LLVM LLVM_IAS
+[[ "$("${cross_compile}gcc" -dumpfullversion)" == 16.2.0 ]] || \
+  die 'Accepted recovery baseline requires GCC 16.2.0; review toolchain changes separately'
+args=(-C "$source_dir" O="$build_dir" ARCH=arm64 CROSS_COMPILE="$cross_compile" LOCALVERSION=)
 make "${args[@]}" olddefconfig syncconfig
+grep -qx CONFIG_CC_IS_GCC=y "$build_dir/.config" || die 'Recovery kernel requires GCC'
+grep -qx CONFIG_LTO_NONE=y "$build_dir/.config" || die 'Recovery kernel requires LTO disabled'
 [[ "$(make -s "${args[@]}" kernelrelease)" == "$release" ]] || die 'Kernel release mismatch'
 (( prepare_only )) && exit 0
 [[ -s "$dest/boot/loader/entries/rocknix.conf" ]] || \
@@ -66,6 +74,7 @@ mapfile -t targets < <(find "$source_dir/arch/arm64/boot/dts/qcom" -maxdepth 1 \
 dtbs=()
 for target in "${targets[@]}"; do dtbs+=("${target%.dts}.dtb"); done
 make "${args[@]}" -j"$jobs" DTC_FLAGS=-@ Image modules "${dtbs[@]}"
+make "${args[@]}" modules_prepare
 stage="$build_dir/modules-stage"
 mkdir -p "$stage"
 make "${args[@]}" INSTALL_MOD_PATH="$stage" INSTALL_MOD_STRIP=1 modules_install

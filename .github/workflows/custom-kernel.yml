@@ -84,6 +84,8 @@ jobs:
           submodules: recursive
       - name: Build native ARM64 builder
         run: make docker-image-build
+      - name: Fetch checksum-pinned Thor sensor firmware and copyright notice
+        run: python3 scripts/sync-thor-sensor-firmware.py
       - name: Build pinned source kernel
         run: |
           set -euo pipefail
