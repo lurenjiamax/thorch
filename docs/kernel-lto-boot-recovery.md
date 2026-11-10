@@ -147,3 +147,18 @@ were backed up on the device in `/var/lib/thorch/clang-control45-baseline/`.
 Fresh native ARM64 header preparation uses `modules_prepare` and a committed
 source archive as a disposable build input, not another maintained Git checkout.
 Do not reboot or mark thorch45 boot-confirmed based on offline validation.
+
+The clean Clang 23.1.4 build and SSH installation of thorch45 completed.
+Native header preparation included `modules_prepare`; TME and dump modules
+were actually rebuilt and installed for thorch45 on the device. Boot validation
+passed and 10,563 files plus 25 symlinks matched their package/generated-file
+hashes after sync and per-file page-cache eviction. The configuration extracted
+from the installed boot Image matched the host-built Image, with kernel BTI,
+LTO, compat vDSO and CFI disabled. Artifacts are in
+`artifacts/kernel45-clang-control/`; device-side records are under
+`/var/cache/thorch-install/clang-control45/`.
+
+At the end of deployment the device was intentionally still running the
+accepted GCC thorch40 kernel, with thorch45 pending reboot. Restart and boot
+acceptance require the user's decision; installation success is not a boot
+result and does not establish the cause of the earlier black screens.
