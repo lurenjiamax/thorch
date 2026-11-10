@@ -41,3 +41,39 @@ Validate the embedded kernel configuration, package/kernel/module release,
 DKMS module vermagic, boot files and post-remount checksums. Hardware acceptance
 still requires booting the Thor, checking `uname -r`, display and input. Do not
 mark a pending transaction boot-confirmed based only on offline checks.
+
+## Follow-up: thorch44 also failed to boot
+
+The user reported the same black screen with thorch44. Disabling LTO alone did
+not recover boot, so LTO is not an established diagnosis.
+
+Commit review found that distribution commit
+`216743a35780091dac1ede53719fdf7acccc4990` changed the build invocation from GCC
+to `LLVM=1` at the same time as enabling ThinLTO. The thorch44 recovery reverted
+the LTO option but retained the Clang/LLD toolchain. Comparing only thorch43 and
+thorch44 missed this wider difference from the known-working thorch40 baseline.
+
+Evidence extracted from the retained Image files before the user-requested
+artifact cleanup:
+
+- thorch40: `aarch64-linux-gnu-gcc (GCC) 16.1.0`, GNU assembler/linker 2.47.
+- thorch44: Clang/LLD 23.1.4, LLVM integrated assembler; no LTO.
+- thorch44 additionally selected `CONFIG_ARM64_BTI_KERNEL=y` and compat VDSO
+  options through toolchain-dependent Kconfig evaluation. The nftables feature
+  changes also remain. These differences are investigation candidates, not
+  proven causes.
+- The retained working thorch40 DTB, pre-thorch43 DTB, and freshly built thorch44
+  DTB were byte-identical: SHA-256
+  `1be2559abda8ca409e3d87682cb18c77b46d7559bb4df6122c0268f7f7857c85`.
+- Host-side file readback, module vermagic, and OpenABL format validation passed
+  for thorch44, but those checks did not prove the binary booted on hardware.
+
+Review also found pre-existing, uncommitted BSP/userland changes, including
+`thorch-rebuild-abl-kernel`. They were not packaged by the kernel-only updates;
+do not silently commit, discard, or treat them as installed. Preserve their
+index/worktree state while auditing the boot path.
+
+Next controlled build, if requested, should first restore the complete
+known-working compiler/configuration baseline rather than changing another
+isolated option. Preserve the distinction between source, build output,
+packaged payload, installed bytes, and actual boot acceptance.
