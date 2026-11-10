@@ -1,6 +1,6 @@
 # Maintainer: Thorch contributors
 pkgname=linux-thorch-headers
-epoch=1
+epoch=2
 pkgver=7.1.2
 pkgrel=40
 pkgdesc='Matching ARM64 external-module build environment for linux-thorch'
