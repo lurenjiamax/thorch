@@ -58,8 +58,11 @@ fi
 "$source_dir/scripts/config" --file "$build_dir/.config" \
   --module IIO_CONFIGFS --set-val PSTORE_DEFAULT_KMSG_BYTES 10240
 unset LLVM LLVM_IAS
-[[ "$("${cross_compile}gcc" -dumpfullversion)" == 16.2.0 ]] || \
-  die 'Accepted recovery baseline requires GCC 16.2.0; review toolchain changes separately'
+gcc_version="$("${cross_compile}gcc" -dumpfullversion)"
+[[ "${gcc_version%%.*}" == 16 ]] || die 'Recovery build requires GCC 16'
+if [[ -n "${THORCH_KERNEL_GCC_VERSION:-}" && "$gcc_version" != "$THORCH_KERNEL_GCC_VERSION" ]]; then
+  die "Expected GCC $THORCH_KERNEL_GCC_VERSION, found $gcc_version"
+fi
 args=(-C "$source_dir" O="$build_dir" ARCH=arm64 CROSS_COMPILE="$cross_compile" LOCALVERSION=)
 make "${args[@]}" olddefconfig syncconfig
 grep -qx CONFIG_CC_IS_GCC=y "$build_dir/.config" || die 'Recovery kernel requires GCC'
@@ -95,6 +98,7 @@ cp "${paths[@]}" "$dest/boot/dtbs/"
 {
   printf 'THORCH_KERNEL_SOURCE=maintained-git-checkout\nTHORCH_KERNEL_RELEASE=%s\n' "$release"
   printf 'THORCH_KERNEL_RESOLVED_REF=%s\n' "$(git -C "$source_dir" rev-parse HEAD)"
+  printf 'THORCH_KERNEL_GCC_VERSION=%s\n' "$gcc_version"
   sha256sum "$build_dir/.config" "$dest/boot/Image" "$dest/boot/KERNEL"
   sha256sum "$dest/boot/loader/entries/rocknix.conf" "$dest/boot/dtbs/qcs8550-ayn-thor.dtb"
 } > "$dest/KERNEL-PROVENANCE"
