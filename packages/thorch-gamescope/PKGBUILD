@@ -1,6 +1,6 @@
 # Component packaging is maintained with the Gamescope source.
 pkgname=thorch-gamescope
 pkgver=3.17.0
-pkgrel=2
+pkgrel=3
 THORCH_GAMESCOPE_SOURCE_DIR="${THORCH_GAMESCOPE_SOURCE_DIR:-${startdir}/../../sources/gamescope}"
 source "$THORCH_GAMESCOPE_SOURCE_DIR/packaging/PKGBUILD"
