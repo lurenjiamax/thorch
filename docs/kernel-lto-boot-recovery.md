@@ -112,3 +112,38 @@ rebuilt Image. Original thorch40 modules were retained on the target at
 `/var/lib/thorch/original-thorch40-modules`, and original package/Image copies
 were retained in `artifacts/kernel40-recovery/baseline/`. Hardware boot acceptance
 is still required; no successful-boot confirmation was fabricated.
+
+## Controlled Clang experiment after successful GCC boot
+
+The user confirmed that the GCC 16.2.0 thorch40 rebuild boots. SSH subsequently
+verified the device running `7.1.2-thorch40` with its guarded transaction marked
+`confirmed`. This is the accepted baseline for the next experiment.
+
+The requested Clang experiment uses a clean build tree and a separate release,
+`7.1.2-thorch45`, to prevent module mixing. It retains the thorch40 code and
+explicitly keeps these options off rather than accepting Clang-dependent
+defaults:
+
+- `CONFIG_LTO_CLANG_FULL` / `CONFIG_LTO_CLANG_THIN` (`CONFIG_LTO_NONE=y`);
+- `CONFIG_ARM64_BTI_KERNEL` (userspace `CONFIG_ARM64_BTI` remains unchanged);
+- `CONFIG_COMPAT_VDSO` and `CONFIG_CFI`;
+- compiler context-analysis warnings, absent from the GCC baseline.
+
+The deliberate change is the GCC/GNU to Clang/LLVM toolchain, including LLD
+and the integrated assembler. Compiler capability probes, BTF annotations,
+compiler-specific flags and the release suffix necessarily differ; this is not
+a claim of byte-identical compiler output. Kernel C/assembly and DTS code are
+unchanged. A later BTI experiment must enable BTI separately, not combine it
+with this compiler switch.
+
+BTI marks valid indirect-branch landing sites and can enforce them on supported
+CPUs. Extra instructions and code/cache effects usually make overhead modest,
+but no device-specific percentage has been measured here. Compatibility errors
+can instead be categorical exceptions, potentially during startup or module
+execution; no such exception has yet been captured for the failed builds.
+
+Deployment is authorized over SSH. The accepted GCC40 boot files and packages
+were backed up on the device in `/var/lib/thorch/clang-control45-baseline/`.
+Fresh native ARM64 header preparation uses `modules_prepare` and a committed
+source archive as a disposable build input, not another maintained Git checkout.
+Do not reboot or mark thorch45 boot-confirmed based on offline validation.
