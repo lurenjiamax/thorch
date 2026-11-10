@@ -103,7 +103,7 @@ diff --git a/src/inputpanelv1window.cpp b/src/inputpanelv1window.cpp
 index 0ac008d..c3da480 100644
 --- a/src/inputpanelv1window.cpp
 +++ b/src/inputpanelv1window.cpp
-@@ -63,6 +63,11 @@ void InputPanelV1Window::showOverlayPanel()
+@@ -67,9 +67,14 @@ void InputPanelV1Window::showOverlayPanel()
 
  void InputPanelV1Window::showTopLevel(OutputInterface *output, InputPanelSurfaceV1Interface::Position position)
  {
@@ -112,7 +112,10 @@ index 0ac008d..c3da480 100644
 +        setOutput(m_requestedOutput);
 +        setMoveResizeOutput(m_requestedOutput);
 +    }
-     m_mode = Mode::VirtualKeyboard;
+     if (m_mode != Mode::VirtualKeyboard) {
+         m_mode = Mode::VirtualKeyboard;
+         Q_EMIT modeChanged();
+     }
      maybeShow();
  }
 @@ -98,12 +103,12 @@ void InputPanelV1Window::resetPosition()

@@ -33,6 +33,15 @@ package() {
   chown builder:builder "$recipe"
   runuser -u builder -- env MAKEPKG_GIT_CONFIG="$work/gitconfig" "$@" makepkg --config "$work/makepkg.conf" \
     --dir "$recipe" --nodeps --nocheck --noconfirm
+  # Keep Arch epochs inside .PKGINFO, not in public transport filenames.
+  local archive name portable
+  for archive in "$out"/*.pkg.tar.zst; do
+    name=${archive##*/}
+    [[ "$name" == *:* ]] || continue
+    portable="$out/${name//:/_}"
+    [[ ! -e "$portable" ]] || { echo "Package transport name collision: $portable" >&2; return 1; }
+    mv -- "$archive" "$portable"
+  done
 }
 bash scripts/package-custom-kernel.sh
 cp output/custom-kernel/*.pkg.tar.zst "$out/"

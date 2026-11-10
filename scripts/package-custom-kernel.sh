@@ -45,7 +45,8 @@ grep -qx 'arch = aarch64' "$output/PKGINFO"
 bsdtar -tf "$pkg" > "$output/package-files.txt"
 grep -Fq "usr/lib/modules/$release/kernel/drivers/md/dm-default-key.ko" "$output/package-files.txt"
 grep -Fq "usr/lib/modules/$release/kernel/fs/quota/quota_v2.ko" "$output/package-files.txt"
-cp "$pkg" "$output/"
+name=${pkg##*/}
+cp "$pkg" "$output/${name//:/_}"
 python scripts/build-tme-modules.py --source kernel-src \
   --build build/kernel-build --output build/tme-modules
 cp -a packages/thorch-tme-modules "$work/"
@@ -54,14 +55,16 @@ runuser -u builder -- env THORCH_TME_SOURCE_DIR="$root/tme-src" \
   bash -c 'cd "$1/thorch-tme-modules"; makepkg --config "$1/makepkg.conf" --nodeps --noconfirm --cleanbuild' bash "$work"
 mapfile -t module_packages < <(find "$work/thorch-tme-modules" -maxdepth 1 -name '*.pkg.tar.zst' -type f)
 [[ ${#module_packages[@]} == 1 ]] || { echo 'Expected one module package' >&2; exit 1; }
-cp "${module_packages[0]}" "$output/"
+name=${module_packages[0]##*/}
+cp "${module_packages[0]}" "$output/${name//:/_}"
 cp -a packages/thorch-bsp "$work/"
 chown -R builder:builder "$work/thorch-bsp"
 runuser -u builder -- \
   bash -c 'cd "$1/thorch-bsp"; makepkg --config "$1/makepkg.conf" --nodeps --noconfirm --cleanbuild' bash "$work"
 mapfile -t bsp_packages < <(find "$work/thorch-bsp" -maxdepth 1 -name '*.pkg.tar.zst' -type f)
 [[ ${#bsp_packages[@]} == 1 ]] || { echo 'Expected one BSP package' >&2; exit 1; }
-cp "${bsp_packages[0]}" "$output/"
+name=${bsp_packages[0]##*/}
+cp "${bsp_packages[0]}" "$output/${name//:/_}"
 # Audit the actual BSP archive against the builder's installed mkinitcpio hook.
 # Fail if upstream adds a rebuild trigger that our transaction does not cover.
 python3 - "${bsp_packages[0]}" <<'PY'

@@ -111,7 +111,7 @@ diff --git a/src/inputpanelv1window.cpp b/src/inputpanelv1window.cpp
 
      m_rescalingTimer.setSingleShot(true);
      m_rescalingTimer.setInterval(0);
-@@ -64,11 +73,11 @@
+@@ -68,14 +77,14 @@
  void InputPanelV1Window::showTopLevel(OutputInterface *output, InputPanelSurfaceV1Interface::Position position)
  {
      m_requestedOutput = output ? output->handle() : nullptr;
@@ -119,7 +119,10 @@ diff --git a/src/inputpanelv1window.cpp b/src/inputpanelv1window.cpp
 -        setOutput(m_requestedOutput);
 -        setMoveResizeOutput(m_requestedOutput);
 -    }
-     m_mode = Mode::VirtualKeyboard;
+     if (m_mode != Mode::VirtualKeyboard) {
+         m_mode = Mode::VirtualKeyboard;
+         Q_EMIT modeChanged();
+     }
 +    if (LogicalOutput *targetOutput = placementOutput()) {
 +        setOutput(targetOutput);
 +        setMoveResizeOutput(targetOutput);
