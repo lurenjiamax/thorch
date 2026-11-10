@@ -136,13 +136,39 @@ jobs:
           name: thor-install-packages
           path: output/install-packages/
           if-no-files-found: warn
+      - name: Prepare portable image release assets
+        run: |
+          set -euo pipefail
+          for image in output/custom-image/*.img.zst; do
+            if (( $(stat -c %s "$image") >= 2147483648 )); then
+              split --bytes=1900M --numeric-suffixes=0 --suffix-length=3 "$image" "${image}.part-"
+              name=${image##*/}
+              printf '\n## Split image download\n\nDownload every `%s.part-*` file into one directory, then run:\n\n```sh\ncat %s.part-* > %s\nsha256sum -c SHA256SUMS\n```\n\nThe original image checksum remains in SHA256SUMS. Verify before decompressing or flashing.\n' "$name" "$name" "$name" >> output/custom-image/INSTALL.md
+            fi
+          done
+          (cd output/custom-image; shopt -s nullglob; parts=(*.img.zst.part-*); if ((${#parts[@]})); then sha256sum "${parts[@]}" >> SHA256SUMS; fi)
+      - name: Retain validated image before release upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: thor-validated-image
+          path: output/custom-image/
+          compression-level: 0
+          if-no-files-found: error
       - name: Publish custom image and matching package set
         run: |
           set -euo pipefail
           version=$(cat output/custom-kernel/version.txt)
           tag="custom-image-${version}-${GITHUB_RUN_ID}"
+          images=()
+          for image in output/custom-image/*.img.zst; do
+            if [[ -f "${image}.part-000" ]]; then
+              images+=("${image}".part-*)
+            else
+              images+=("$image")
+            fi
+          done
           gh release create "$tag" output/custom-image/*.pkg.tar.zst \
-            output/custom-image/*.img.zst output/custom-image/SHA256SUMS \
+            "${images[@]}" output/custom-image/SHA256SUMS \
             output/custom-image/SOURCES.json \
             output/custom-image/PROVENANCE output/custom-image/TME-PROVENANCE \
             output/custom-image/INSTALL.md \
