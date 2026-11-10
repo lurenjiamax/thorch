@@ -2,7 +2,7 @@
 
 pkgname=kwin
 pkgver=6.8.2
-pkgrel=1
+pkgrel=2
 pkgdesc='KWin with dual-screen placement and reliable forced input panels'
 arch=(aarch64)
 url='https://invent.kde.org/plasma/kwin'
@@ -81,10 +81,8 @@ optdepends=('plasma-keyboard: virtual keyboard')
 groups=(plasma)
 source=("https://download.kde.org/stable/plasma/${pkgver}/${pkgname}-${pkgver}.tar.xz"
         0001-honor-input-panel-requested-output.patch
-        0002-configure-input-panel-placement.patch
-        0003-allow-forced-input-panel-activation.patch)
+        0002-configure-input-panel-placement.patch)
 sha256sums=('ea5e68d957c7d70abed97222a592d4445fda29129e20942658badd224ee138b4'
-            'SKIP'
             'SKIP'
             'SKIP')
 
@@ -92,7 +90,8 @@ prepare() {
   cd "${pkgname}-${pkgver}"
   patch -Np1 -i "${srcdir}/0001-honor-input-panel-requested-output.patch"
   patch -Np1 -i "${srcdir}/0002-configure-input-panel-placement.patch"
-  patch -Np1 -i "${srcdir}/0003-allow-forced-input-panel-activation.patch"
+  # Plasma 6.8 implements forced panel activation with m_forceShowRequested.
+  # Do not overlay the legacy 6.7 zero-context implementation on that state.
 }
 
 build() {
@@ -117,7 +116,7 @@ check() {
     XDG_RUNTIME_DIR="${runtime_dir}" \
     QT_QPA_PLATFORM=offscreen \
     QT_QUICK_BACKEND=software \
-    ./build/bin/testInputMethod testRequestedOutput testInputPanelPlacement testForceActivate
+    ./build/bin/testInputMethod testRequestedOutput testInputPanelPlacement
 }
 
 package() {
