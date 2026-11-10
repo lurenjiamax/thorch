@@ -27,7 +27,7 @@ def main() -> None:
         parser.error('Compile the matching kernel first: missing Module.symvers')
     out.mkdir(parents=True, exist_ok=True)
     subprocess.run(['make', '-C', str(source), f'O={build}', 'ARCH=arm64',
-                    'LLVM=1', 'LOCALVERSION=', f'M={module_source}', f'MO={out}', 'modules'],
+                    'LOCALVERSION=', f'M={module_source}', f'MO={out}', 'modules'],
                    check=True)
     subprocess.run(['dtc', '-@', '-I', 'dts', '-O', 'dtb', '-o',
                     str(out / 'tme-overlay.dtbo'),
