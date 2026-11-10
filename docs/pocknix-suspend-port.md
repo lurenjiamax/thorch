@@ -36,3 +36,29 @@ Compilation, boot, mounted/unmounted userdata sleep cycles and sensor/audio
 recovery are separate stages. No claim that userdata suspend is fixed is made
 until those actual scenarios pass. Never use binfmt_misc or deliberate panic
 to validate this candidate.
+
+## Hardware result, 2026-11-10
+
+- GCC16.2 kernel and complete module tree built successfully. Runtime config
+  differs from accepted GCC40 only in LOCALVERSION. Thor DTB SHA256 is unchanged.
+- Native ARM64 header helpers were prepared with the device's installed GCC
+  16.1.1; matching cross-build Module.symvers was used. A real dump module build
+  from the packaged headers passed after removing the inherited LLVM override.
+- Both TME and dump DKMS builds passed during pacman installation. thorch46
+  booted, boot payload validation passed, SSC returned both streams and dump
+  remained enabled without requesting a panic.
+- One corrected unmounted RTC-wake cycle passed. Four mounted read/write
+  userdata cycles passed, with accelerometer/gyroscope samples after each.
+  Three consecutive mounted cycles also compared an aligned 4096-byte O_DIRECT
+  read before/after sleep; contents matched without exporting names/data/hash.
+- RTC wake IRQ 167 was observed in these accepted cycles. The initial diagnostic
+  incorrectly treated `systemctl suspend` enqueue as completion and cancelled
+  the alarm early; that run is excluded. The corrected probe waits for the
+  suspend.target lifecycle. An unrelated later user sleep is not counted.
+- The test mount was stopped gracefully afterward. The device remains on
+  thorch46 with SSC ready and dump enabled. GCC40 recovery materials remain.
+
+Evidence: artifacts/kernel46-pocknix/hardware-verification.tar (explicitly
+excludes private userdata path/hash state and the private mount log).
+This is short-cycle acceptance, not proof of the original failure's cause,
+long-duration sleep power, all power-key/lid transitions or production readiness.

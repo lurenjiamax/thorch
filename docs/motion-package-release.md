@@ -21,6 +21,15 @@ The service-only package was installed with pacman on the development Thor.
 Two fresh boots with unchanged GCC40 kernel/ABL/firmware/calibration returned
 accelerometer and gyroscope samples; one boot had temporary syscall tracing and
 one did not. Current calibration/axis fidelity and suspend recovery are separate
-acceptance items. The other firmware packages require package-content and
-dependency validation before publication and are not evidence of new-device
-automatic provisioning.
+acceptance items. Firmware package contents, architecture, required notices,
+absence of private registry/identifiers and non-overlapping ownership were
+checked. All three package hashes and pacman dependency resolution passed on
+the Thor before publication. This is not evidence of new-device automatic
+provisioning.
+
+Release: https://github.com/lurenjiamax/thorch/releases/tag/motion-0.5.0-11-firmware-1-1
+
+Main's image workflow remains pinned to the accepted source revision and GCC16
+without LTO. The native ARM builder's installed minor version is recorded; it
+must not be represented as byte-identical to the local GCC16.2 recovery build.
+The image workflow's post-assembly checks require firmware seeds and notices.
