@@ -176,3 +176,33 @@ LLD, LLVM's assembler and compiler-generated code/BTF. Restore the accepted
 GCC40 baseline before further trials and preserve the failed payload/logs. A
 subsequent authorized experiment should separate the compiler from GNU versus
 LLVM linker/assembler choices, rather than layering more feature changes.
+
+## Further matching-case search after thorch45 failure
+
+Two upstream reports were checked against actual local source, not treated as
+proof of the present root cause:
+
+1. [OpenABL issue 29](https://github.com/OpenHandheldCollective/OpenABL/issues/29)
+   (2026-10-21) explicitly reports SM8550 and AYN Thor intermittent logo hangs
+   between `ExitBootServices` and the kernel entry point. The report attributes
+   the hang to a stale stack canary after MMU/cache shutdown under Gunyah, with
+   a related unsafe late firmware timestamp read. It is not a demonstrated
+   Clang-only kernel failure. [PR 33](https://github.com/OpenHandheldCollective/OpenABL/pull/33)
+   was merged on 2026-10-23. The local OpenABL checkout contains the canary
+   by-address cache-clean fix (commit `dad6370` in its history). The actually
+   flashed bootloader binary/version has not been verified, so applicability
+   remains open and no flashing is authorized by this investigation alone.
+2. [ClangBuiltLinux issue 2082](https://github.com/ClangBuiltLinux/linux/issues/2082)
+   and [LLVM issue 138019](https://github.com/llvm/llvm-project/issues/138019)
+   describe ARM64 kernels failing before console output after an LLVM
+   optimization change. The diagnosed issue was Linux reading
+   `arm64_use_ng_mappings` before BSS initialization, not an LLVM miscompile.
+   Linux fix `363cd2b81cfdf706bbfc9ec78db000c9b1ecc552` places that variable
+   in data with `__read_mostly`. Local source already has that fix, and
+   `llvm-objdump -t build/kernel-build/vmlinux` confirmed both the symbol and
+   its `__pi_` alias in `.data`, not `.bss`, for the failed thorch45 build.
+   Therefore this specific patch is not a missing fix to apply blindly.
+
+No verified exact match was found for this Thor configuration, Clang 23.1.4,
+no LTO and no kernel BTI. Serial definitions, Android-reference limitations and
+hardware safety considerations are recorded in [thor-uart-debug.md](thor-uart-debug.md).
