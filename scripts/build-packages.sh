@@ -8,6 +8,7 @@ source "${script_dir}/lib/common.sh"
 source "${script_dir}/lib/package-repo.sh"
 load_thorch_config
 THORCH_POWERDEVIL_SOURCE_DIR="${THORCH_POWERDEVIL_SOURCE_DIR:-sources/powerdevil}"
+THORCH_GAMESCOPE_SOURCE_DIR="${THORCH_GAMESCOPE_SOURCE_DIR:-sources/gamescope}"
 THORCH_TME_SOURCE_DIR="${THORCH_TME_SOURCE_DIR:-tme-src}"
 
 usage() {
@@ -241,7 +242,7 @@ resolve_input_path() {
   fi
 
   case "${prefix}" in
-    THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
+    THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
       value="${!prefix}"
       path="${value}${rest:+/${rest}}"
       ;;
@@ -409,7 +410,7 @@ validate_package_paths() {
     resolve_input_path "${input}" >/dev/null
     prefix="${input%%/*}"
     case "${prefix}" in
-      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
+      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
         if [[ "${prefix}" == "${input}" ]]; then
           rest=""
         else
@@ -512,8 +513,7 @@ source_sync_args=()
 if [[ " ${packages[*]} " == *" thorch-firmware-rocknix "* ]]; then
   source_sync_args+=(--with-firmware)
 fi
-if { { [[ " ${packages[*]} " == *" thorch-gamescope "* ]] ||
-  [[ " ${packages[*]} " == *" thorch-inputplumber "* ]] ||
+if { { [[ " ${packages[*]} " == *" thorch-inputplumber "* ]] ||
   [[ " ${packages[*]} " == *" thorch-rocknix-quirks "* ]] ||
   [[ " ${packages[*]} " == *" thorch-mangohud "* ]]; } && ! rocknix_package_sources_ready; } ||
   { [[ " ${packages[*]} " == *" thorch-firmware-rocknix "* ]] &&
@@ -685,7 +685,7 @@ sync_package_inputs() {
     [[ -n "${input}" ]] || continue
     prefix="${input%%/*}"
     case "${prefix}" in
-      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
+      THORCH_FIRMWARE_DIR|THORCH_ROCKNIX_DIR|THORCH_ROCKNIX_KERNEL_DIR|THORCH_ROCKNIX_RUNTIME_DIR|THORCH_POWERDEVIL_SOURCE_DIR|THORCH_GAMESCOPE_SOURCE_DIR|THORCH_TME_SOURCE_DIR)
         base="${!prefix}"
         if [[ "${prefix}" == "${input}" ]]; then
           rest=""
@@ -770,6 +770,7 @@ for pkg in "${packages[@]}"; do
   run_chroot "chown -R builder:builder /thorch-work/${pkg} /thorch-pkgdest"
   package_env="env MAKEFLAGS=-j${THORCH_PACKAGE_JOBS} CMAKE_BUILD_PARALLEL_LEVEL=${THORCH_PACKAGE_JOBS} PKGDEST=/thorch-pkgdest THORCH_ROCKNIX_DIR=/thorch-input/${THORCH_ROCKNIX_DIR} THORCH_FIRMWARE_DIR=/thorch-input/${THORCH_FIRMWARE_DIR} THORCH_ROCKNIX_KERNEL_DIR=/thorch-input/${THORCH_ROCKNIX_KERNEL_DIR} THORCH_ROCKNIX_RUNTIME_DIR=/thorch-input/${THORCH_ROCKNIX_RUNTIME_DIR}"
   package_env+=" THORCH_POWERDEVIL_SOURCE_DIR=/thorch-input/${THORCH_POWERDEVIL_SOURCE_DIR} THORCH_TME_SOURCE_DIR=/thorch-input/${THORCH_TME_SOURCE_DIR}"
+  package_env+=" THORCH_GAMESCOPE_SOURCE_DIR=/thorch-input/${THORCH_GAMESCOPE_SOURCE_DIR}"
   run_chroot "cd /thorch-work/${pkg} && su builder -c '${package_env} makepkg --config /etc/thorch-makepkg.conf --printsrcinfo > .SRCINFO'"
   run_chroot "test -s /thorch-work/${pkg}/.SRCINFO && grep -Eq '^[[:space:]]*pkgname = ${pkg}$' /thorch-work/${pkg}/.SRCINFO" || \
     die "makepkg generated invalid .SRCINFO for ${pkg}"

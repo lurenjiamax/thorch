@@ -76,6 +76,12 @@ jobs:
           repository: lurenjiamax/powerdevil
           ref: ${{ steps.sources.outputs.powerdevil }}
           path: sources/powerdevil
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/gamescope
+          ref: ${{ steps.sources.outputs.gamescope }}
+          path: sources/gamescope
+          submodules: recursive
       - name: Build native ARM64 builder
         run: make docker-image-build
       - name: Build pinned source kernel

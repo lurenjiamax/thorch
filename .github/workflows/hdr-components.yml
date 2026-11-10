@@ -1,0 +1,53 @@
+name: Thor HDR Components
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thor-hdr-components-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gamescope:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      THORCH_DOCKER_IMAGE: thorch-custom-builder:local
+      THORCH_PACKAGE_JOBS: '4'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Resolve maintained Gamescope source
+        id: gamescope
+        run: |
+          revision=$(gh api repos/lurenjiamax/gamescope/commits/main --jq .sha)
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          mkdir -p output
+          printf '%s\n' "$revision" > output/GAMESCOPE-SOURCE
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/gamescope
+          ref: ${{ steps.gamescope.outputs.revision }}
+          path: sources/gamescope
+          submodules: recursive
+      - name: Build native ARM64 builder
+        run: make docker-image-build
+      - name: Build HDR Gamescope package
+        run: |
+          docker run --privileged --rm --volume "$PWD:/work" --workdir /work \
+            --env THORCH_PACKAGE_JOBS "$THORCH_DOCKER_IMAGE" bash -lc '
+              set -euo pipefail
+              git config --global --add safe.directory /work
+              git config --global --add safe.directory /work/sources/gamescope
+              bash scripts/build-packages.sh --skip-kernel --packages thorch-gamescope
+            '
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: thor-hdr-components
+          path: |
+            output/repo/thorch-gamescope-*.pkg.tar.*
+            output/GAMESCOPE-SOURCE
+          if-no-files-found: error

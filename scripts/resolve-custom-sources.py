@@ -21,7 +21,7 @@ def main():
             config[key] = value
     resolved = {}
     for component in ('KERNEL', 'TME', 'INPUTPLUMBER', 'MOTION', 'DUMP',
-                      'HEXAGONRPC', 'LIBSSC', 'POWERDEVIL'):
+                      'HEXAGONRPC', 'LIBSSC', 'POWERDEVIL', 'GAMESCOPE'):
         repository = config[f'{component}_SOURCE_REPOSITORY']
         branch = config[f'{component}_SOURCE_BRANCH']
         if branch not in ('main', 'master'):

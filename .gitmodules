@@ -11,3 +11,7 @@
 	path = sources/powerdevil
 	url = https://github.com/lurenjiamax/powerdevil.git
 	branch = main
+[submodule "sources/gamescope"]
+	path = sources/gamescope
+	url = https://github.com/lurenjiamax/gamescope.git
+	branch = main

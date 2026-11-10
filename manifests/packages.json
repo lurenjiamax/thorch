@@ -92,7 +92,7 @@
       "name": "thorch-gamescope",
       "path": "packages/thorch-gamescope",
       "profiles": ["build", "image", "release"],
-      "build_inputs": ["THORCH_ROCKNIX_DIR/packages/apps/gamescope/patches"]
+      "build_inputs": ["THORCH_GAMESCOPE_SOURCE_DIR"]
     },
     {
       "name": "thorch-gaming-installers",
