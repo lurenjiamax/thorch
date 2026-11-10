@@ -54,7 +54,7 @@ if (( !reuse )) || [[ ! -f "$build_dir/.config" ]]; then
 fi
 "$source_dir/scripts/config" --file "$build_dir/.config" \
   --set-str LOCALVERSION "-thorch${release##*-thorch}" --disable LOCALVERSION_AUTO
-args=(-C "$source_dir" O="$build_dir" ARCH=arm64 CROSS_COMPILE="$cross_compile" LOCALVERSION=)
+args=(-C "$source_dir" O="$build_dir" ARCH=arm64 LLVM=1 CROSS_COMPILE="$cross_compile" LOCALVERSION=)
 make "${args[@]}" olddefconfig syncconfig
 [[ "$(make -s "${args[@]}" kernelrelease)" == "$release" ]] || die 'Kernel release mismatch'
 (( prepare_only )) && exit 0
