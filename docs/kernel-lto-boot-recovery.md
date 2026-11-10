@@ -162,3 +162,17 @@ At the end of deployment the device was intentionally still running the
 accepted GCC thorch40 kernel, with thorch45 pending reboot. Restart and boot
 acceptance require the user's decision; installation success is not a boot
 result and does not establish the cause of the earlier black screens.
+
+The user subsequently reported that thorch45 still cannot boot normally. An
+SSH connection attempt to the authorized device timed out, and its removable
+boot media was not connected to the build host. No early boot log was obtained;
+SSH failure alone does not locate the failing stage or exclude a networking
+failure.
+
+This result shows the reported failure also occurs with kernel BTI and LTO
+disabled. Neither is therefore a necessary condition of this observed failure.
+It does not establish a Clang compiler bug: the controlled change also includes
+LLD, LLVM's assembler and compiler-generated code/BTF. Restore the accepted
+GCC40 baseline before further trials and preserve the failed payload/logs. A
+subsequent authorized experiment should separate the compiler from GNU versus
+LLVM linker/assembler choices, rather than layering more feature changes.
