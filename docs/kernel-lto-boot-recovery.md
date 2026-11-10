@@ -77,3 +77,38 @@ Next controlled build, if requested, should first restore the complete
 known-working compiler/configuration baseline rather than changing another
 isolated option. Preserve the distinction between source, build output,
 packaged payload, installed bytes, and actual boot acceptance.
+
+## Requested thorch40 rollback
+
+The maintained kernel checkout was switched, without discarding changes, to a
+dedicated `recovery/thorch40-gcc` branch at
+`89686bf604b5e888412ff167d80c6eaa848c158a` (the thorch40 panel-brightness fix).
+The kernel recipe, native headers dependency and external-module entry point
+were returned to GCC/GNU builds and release `7.1.2-thorch40`.
+
+At the user's direction the rebuild used the installed cross GCC 16.2.0 and
+GNU binutils 2.47, not a downloaded GCC 16.1.0. Compared with the retained
+working thorch40 Image's extracted configuration, the resulting installed
+configuration differed only in `CC_VERSION_TEXT` and `GCC_VERSION` (16.1.0 to
+16.2.0). LTO remained disabled and kernel BTI was not enabled. Native ARM64
+header utilities were built with the target's installed GCC, with the completed
+cross-build's matching `Module.symvers`.
+
+A fresh native helper-only build exposed a genuine packaging prerequisite:
+`prepare scripts` did not generate `scripts/module.lds`. Without that linker
+script, DKMS compiled the C objects but failed final `.ko` linking with
+`No rule to make target ...ko`. The guarded boot transaction restored the
+previous boot payload. Running `modules_prepare`, repackaging and reinstalling
+the headers fixed actual DKMS builds for both TME and dump modules. The headers
+recipe now explicitly refuses packaging without `scripts/module.lds`.
+This omission explains that recovery attempt's DKMS failure, not the earlier
+thorch43/thorch44 black screen, whose native header preparation had reused an
+existing linker script.
+
+After the corrected installation, both initramfs images and OpenABL boot files
+were validated. Following unmount/remount, 10,559 files and 25 symlinks passed
+readback checks; the actual boot Image's extracted configuration matched the
+rebuilt Image. Original thorch40 modules were retained on the target at
+`/var/lib/thorch/original-thorch40-modules`, and original package/Image copies
+were retained in `artifacts/kernel40-recovery/baseline/`. Hardware boot acceptance
+is still required; no successful-boot confirmation was fabricated.
