@@ -1,0 +1,11 @@
+[package]
+name = "thorch-inputd"
+version = "1.0.0"
+edition = "2021"
+
+[[bin]]
+name = "thorch-inputd"
+path = "thorch-inputd.rs"
+
+[profile.release]
+opt-level = 2

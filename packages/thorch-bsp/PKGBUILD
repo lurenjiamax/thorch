@@ -17,14 +17,14 @@ backup=(
   etc/thorch/inputd.conf
 )
 install=thorch-bsp.install
-source=()
-sha256sums=()
+source=('https://github.com/jdx/mr-boxington/releases/download/v1.30.0/mbx-aarch64-unknown-linux-gnu.tar.gz')
+sha256sums=('6317bb6780404e78c3b670d95e128c85871809dfc541882b2efaa34120f45e71')
 
 build() {
-  rustc "${startdir}/inputd/thorch-inputd.rs" \
-    --edition=2021 \
-    -C opt-level=2 \
-    -o "${srcdir}/thorch-inputd"
+  export MBX_GC_AUTO=0 MBX_DISPLAY=plain
+  export CARGO_TARGET_DIR="${srcdir}/inputd-target"
+  "${srcdir}/mbx" build --release --locked \
+    --manifest-path "${startdir}/inputd/Cargo.toml"
 }
 
 package() {
@@ -64,7 +64,7 @@ package() {
   chmod 755 "${pkgdir}/usr/bin/thorch-hardwarectl"
   chmod 755 "${pkgdir}/usr/bin/thorch-lavd-mode"
   rm -f "${pkgdir}/usr/bin/thorch-powerkeyd"
-  install -Dm755 "${srcdir}/thorch-inputd" "${pkgdir}/usr/bin/thorch-inputd"
+  install -Dm755 "${srcdir}/inputd-target/release/thorch-inputd" "${pkgdir}/usr/bin/thorch-inputd"
   chmod 755 "${pkgdir}/usr/bin/thorch-rgb"
   chmod 755 "${pkgdir}/usr/bin/thorch-fancontrol"
   chmod 755 "${pkgdir}/usr/bin/thorch-quicksetting-toggle"

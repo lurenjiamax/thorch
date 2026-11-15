@@ -40,6 +40,11 @@ The installed Arch Linux ARM 1.1.3-2 metadata was inspected, but cannot by
 itself prove its complete patch set; rebuilding from the known upstream tag
 avoids both binary patching and duplicate application.
 
+BSP packaging also routes its existing standalone Rust input daemon through
+a dependency-free Cargo manifest and the same pinned mbx wrapper. Edition
+2021 and optimization level 2 are unchanged; its Rust source is untouched.
+Build output stays in makepkg's source directory, outside maintained source.
+
 ## Verification status
 
 Source applicability and whitespace checks passed. The kernel build is in
