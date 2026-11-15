@@ -56,8 +56,13 @@ and native BSP 1-50 builds succeeded. Kernel Image SHA256:
 BSP package SHA256:
 `695b0195b2e184dd1399e1b92aa8ac2931cf2834a94853465131bbfcf4a32d35`.
 The BSP archive contains all three defaults, diagnostic ordering and the
-scx-scheds minimum version. LAVD and matching native headers are still being
-prepared; no new kernel has been installed or booted. Hardware acceptance,
+scx-scheds minimum version. Native headers packaging succeeded; the archive's
+headers compiled all three TME modules and the dump module on Thor, with
+`7.1.2-thorch47 SMP preempt mod_unload aarch64` vermagic. The headers retain
+the exact cross-build Module.symvers SHA256
+`1ddeb1fcf443f493b9c0380e64597e3cd82daf30067fe93f473c055822a7b4a5`.
+LAVD rebuilding is outstanding; no new kernel has been installed or booted.
+Hardware acceptance,
 including lid/power-key, USB charging changes, GPU, SSC, audio, Wi-Fi and
 userdata I/O, remains outstanding. Previous thorch46 short sleep results do
 not establish acceptance of thorch47 or resolve the long-sleep RCU hang.
