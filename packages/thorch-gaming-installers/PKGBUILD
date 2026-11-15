@@ -2,12 +2,13 @@
 
 pkgname=thorch-gaming-installers
 pkgver=1
-pkgrel=50
+pkgrel=51
 pkgdesc='Steam ARM64 and required FEX gaming setup for Thorch'
 arch=(aarch64)
 license=(GPL-2.0-or-later)
 depends=(bash binutils coreutils curl e2fsprogs file findutils gzip jq libxinerama lsof lsb-release openal procps-ng python sed squashfs-tools sudo systemd tar udisks2 unzip util-linux xz thorch-firmware-rocknix thorch-mesa wget xorg-xwininfo thorch-fex-bin)
 optdepends=('thorch-gamescope: patched Steam gamepad UI session'
+            'wine: run Windows executables through the PE binfmt handler'
             'gamescope: fallback Steam gamepad UI session'
             'thorch-mangohud: ROCKNIX SM8550 MangoHud overlay config'
             'vulkan-tools: Vulkan diagnostics'
