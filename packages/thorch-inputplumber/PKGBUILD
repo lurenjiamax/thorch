@@ -1,19 +1,30 @@
 # Maintainer: Thorch contributors
 
 pkgname=thorch-inputplumber
-pkgver=0.78.0
-pkgrel=1
-pkgdesc='Input router and remapper for AYN Odin 2'
+pkgver=0.82.0
+pkgrel=8
+pkgdesc='Input routing with optional reconnecting Qualcomm SSC motion'
 arch=(aarch64)
 url='https://github.com/ShadowBlip/InputPlumber'
 license=(GPL3)
 depends=(dbus glibc libevdev libgcc libiio polkit systemd-libs)
-source=("https://github.com/ShadowBlip/InputPlumber/releases/download/v${pkgver}/inputplumber-aarch64.tar.gz")
-sha256sums=('8abbd4d1787757cb0be87aa2e11f3a1d03b9dd6fd2c68f08b0e10f1dc3e31e13')
+optdepends=('thorch-motion: optional Qualcomm SSC motion runtime')
+# Local cross-built artifact recipe. The producer records the exact executable,
+# rootfs archive, source commit and source diff; it does not generate PKGBUILD.
+source=('inputplumber-thorch-0.82.0.tar.gz' 'SHA256SUMS' 'inputplumber-restart.conf')
+sha256sums=('SKIP' 'SKIP' '66291ea147ca7caffce5ee475abcd655251e84277c8bd68f771442cb7644d19c')
+noextract=('inputplumber-thorch-0.82.0.tar.gz')
+
+prepare() {
+  cd "$srcdir"
+  sha256sum -c SHA256SUMS
+  tar -xzf inputplumber-thorch-0.82.0.tar.gz
+}
 
 package() {
-  cp -a "${srcdir}/inputplumber/." "${pkgdir}/"
+  cp -a "${srcdir}/package-root/." "${pkgdir}/"
   chmod 755 "${pkgdir}/usr/bin/inputplumber"
+  install -Dm644 "${srcdir}/inputplumber-restart.conf" \
+    "${pkgdir}/usr/lib/systemd/system/inputplumber.service.d/90-restart.conf"
 
-  cp -a "${startdir}/payload/." "${pkgdir}/"
 }

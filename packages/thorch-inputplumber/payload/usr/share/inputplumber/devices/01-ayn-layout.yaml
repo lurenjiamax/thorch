@@ -41,11 +41,22 @@ source_devices:
       phys_path: rsinput-gamepad/input0
       handler: event*
     capability_map_id: ayn_mcu
+  - group: imu
+    fastrpc:
+      name: fastrpc-adsp
+      id: /sys/devices/virtual/misc/fastrpc-adsp
+    config:
+      imu:
+        # Post-libssc frame; physical mounting is not independently verified.
+        mount_matrix:
+          x: [1.0, 0.0, 0.0]
+          y: [0.0, 1.0, 0.0]
+          z: [0.0, 0.0, 1.0]
 
 options:
   auto_manage: true
 
 target_devices:
-  - xbox-series
+  - ds5
   - mouse
   - keyboard
