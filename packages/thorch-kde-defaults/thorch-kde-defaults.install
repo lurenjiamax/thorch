@@ -1,7 +1,7 @@
-apply_bluetooth_default() {
+apply_system_service_defaults() {
   [ -z "${install_root:-}" ] || return 0
   if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
-    systemctl preset bluetooth.service >/dev/null 2>&1 || true
+    systemctl preset bluetooth.service upower.service >/dev/null 2>&1 || true
     systemctl start bluetooth.service >/dev/null 2>&1 || true
   fi
 }
@@ -575,7 +575,7 @@ restore_legacy_sddm_autologin() {
 }
 
 post_install() {
-  apply_bluetooth_default
+  apply_system_service_defaults
   stop_legacy_companion_panel
   remove_legacy_companion_autostart
   enable_custom_action_drawer
@@ -596,7 +596,7 @@ post_upgrade() {
   upgrade_legacy_desktop_panel_thickness "${2:-}"
   remove_legacy_desktop_launchers "${2:-}"
   restore_legacy_sddm_autologin
-  apply_bluetooth_default
+  apply_system_service_defaults
   stop_legacy_companion_panel
   remove_legacy_companion_autostart
   enable_custom_action_drawer

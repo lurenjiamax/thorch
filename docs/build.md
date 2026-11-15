@@ -49,6 +49,7 @@ PowerDevil's DDC probing with `POWERDEVIL_NO_DDCUTIL=1`. The built-in DSI
 backlights keep their normal brightness controls; external DDC brightness
 control is disabled. Remove that environment override to opt back into DDC
 when using a compatible external display. Boot diagnostics remain opt-in.
+UPower starts with the system, before the desktop requests battery information.
 
 Thorch supplies the Arch Linux ARM root filesystem, KDE defaults, firmware
 package, initramfs and userspace installers. Kernel configuration and DTS changes
