@@ -50,8 +50,18 @@ Build output stays in makepkg's source directory, outside maintained source.
 
 ## Verification status
 
-Source applicability and whitespace checks passed. The kernel build is in
-progress; no new kernel has been installed or booted. Hardware acceptance,
+Source applicability and whitespace checks passed. GCC16.2/no-LTO kernel47
+and native BSP 1-50 builds succeeded. Kernel Image SHA256:
+`e5acafec6e0883dd3116d7eb73e344bee4aeb9ac499ece14cea0d1bb68b3230a`.
+BSP package SHA256:
+`695b0195b2e184dd1399e1b92aa8ac2931cf2834a94853465131bbfcf4a32d35`.
+The BSP archive contains all three defaults, diagnostic ordering and the
+scx-scheds minimum version. LAVD and matching native headers are still being
+prepared; no new kernel has been installed or booted. Hardware acceptance,
 including lid/power-key, USB charging changes, GPU, SSC, audio, Wi-Fi and
 userdata I/O, remains outstanding. Previous thorch46 short sleep results do
 not establish acceptance of thorch47 or resolve the long-sleep RCU hang.
+
+No runtime sysctl override or automatic detector restoration is added. Pacman's
+normal sysctl hook applies the performance defaults on package installation;
+diagnostic detection remains an explicit operator choice afterwards.
