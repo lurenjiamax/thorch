@@ -5,6 +5,12 @@
   },
   "packages": [
     {
+      "name": "scx-scheds",
+      "path": "packages/scx-scheds",
+      "profiles": ["build", "image", "release"],
+      "build_inputs": ["THORCH_SCX_SOURCE_DIR"]
+    },
+    {
       "name": "powerdevil",
       "path": "packages/powerdevil",
       "profiles": ["build", "image", "release"],

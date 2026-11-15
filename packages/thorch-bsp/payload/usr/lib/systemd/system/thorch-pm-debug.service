@@ -1,6 +1,7 @@
 [Unit]
 Description=Thor opt-in persistent suspend diagnostics
 After=systemd-pstore.service systemd-modules-load.service
+After=systemd-sysctl.service
 Requires=thorch-pm-log.service
 After=thorch-pm-log.service
 

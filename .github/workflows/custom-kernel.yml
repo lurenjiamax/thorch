@@ -82,6 +82,11 @@ jobs:
           ref: ${{ steps.sources.outputs.gamescope }}
           path: sources/gamescope
           submodules: recursive
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/scx
+          ref: ${{ steps.sources.outputs.scx }}
+          path: sources/scx
       - name: Build native ARM64 builder
         run: make docker-image-build
       - name: Fetch checksum-pinned Thor sensor firmware and copyright notice

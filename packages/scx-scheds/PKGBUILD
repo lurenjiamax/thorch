@@ -1,0 +1,5 @@
+pkgname=scx-scheds
+pkgver=1.1.3
+pkgrel=3
+THORCH_SCX_SOURCE_DIR="${THORCH_SCX_SOURCE_DIR:-${startdir}/../../sources/scx}"
+source "$THORCH_SCX_SOURCE_DIR/packaging/PKGBUILD"
