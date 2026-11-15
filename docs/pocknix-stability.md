@@ -25,8 +25,8 @@ runs after systemd-sysctl and may explicitly enable the detectors. Existing
 boot logging `nowatchdog` remains a default rather than a permanent lockout.
 Administrators' later sysctl overrides retain their normal precedence.
 
-The dump-debug service separately opts into panic capture. Installation of
-the performance default must not stop an already active diagnostic capture.
+The dump-debug service separately opts into panic capture. No runtime override
+protects its detector settings against a later manual/package sysctl reapply.
 Never use a deliberate panic or reboot as validation without permission.
 
 ## Scheduler
@@ -51,21 +51,20 @@ Build output stays in makepkg's source directory, outside maintained source.
 ## Verification status
 
 Source applicability and whitespace checks passed. GCC16.2/no-LTO kernel47
-and native BSP 1-50 builds succeeded. Kernel Image SHA256:
+and native BSP builds succeeded. Kernel Image SHA256:
 `e5acafec6e0883dd3116d7eb73e344bee4aeb9ac499ece14cea0d1bb68b3230a`.
-BSP package SHA256:
-`695b0195b2e184dd1399e1b92aa8ac2931cf2834a94853465131bbfcf4a32d35`.
+Package checksums are retained in `artifacts/kernel47-pocknix/SHA256SUMS` in
+the main distribution worktree.
 The BSP archive contains all three defaults, diagnostic ordering and the
 scx-scheds minimum version. Native headers packaging succeeded; the archive's
 headers compiled all three TME modules and the dump module on Thor, with
 `7.1.2-thorch47 SMP preempt mod_unload aarch64` vermagic. The headers retain
 the exact cross-build Module.symvers SHA256
 `1ddeb1fcf443f493b9c0380e64597e3cd82daf30067fe93f473c055822a7b4a5`.
-LAVD rebuilding is outstanding; no new kernel has been installed or booted.
-Hardware acceptance,
-including lid/power-key, USB charging changes, GPU, SSC, audio, Wi-Fi and
-userdata I/O, remains outstanding. Previous thorch46 short sleep results do
-not establish acceptance of thorch47 or resolve the long-sleep RCU hang.
+LAVD rebuilding, package installation and kernel47 boot succeeded. Physical
+lid/power-key and USB charging transitions, long sleep and complete audio
+acceptance remain outstanding. Previous thorch46 short sleep results do not
+establish acceptance of thorch47 or resolve the long-sleep RCU hang.
 
 No runtime sysctl override or automatic detector restoration is added. Pacman's
 normal sysctl hook applies the performance defaults on package installation;
@@ -78,7 +77,8 @@ Thor. The boot transaction reached confirmed; LAVD remained active with zero
 restarts, both SSC streams returned measurements, both DSI outputs were
 connected with backlights on, Wi-Fi carried SSH traffic and Wayland vkcube
 rendered 120 frames on Turnip A740. All three watchdog values were zero after
-installation and after boot. These observations do not establish sleep acceptance.
+installation and after boot. BSP51 and dump-debug9 are the corrected deployed
+versions; the boot transaction is confirmed with zero failed system units.
 
 Dump-debug 0.1.0-9 adds only an explicit watchdog master/detector enable command
 to its existing service, ordered after sysctl. The old tool requires detectors
@@ -92,3 +92,10 @@ source-tool links; following them made an unchanged-module reinstall fail.
 The retained module tree and installed tree compare equal without dereference,
 and the installed/rebuilt dump module SHA256 is identical. The original
 same-release byte-identity safeguard remains in force.
+
+One unmounted 15-second RTC s2idle cycle resumed in the same boot, retaining
+SSC measurements, active LAVD with zero restarts, Wi-Fi connectivity and both
+DSI outputs On. WirePlumber segfaulted once at resume in `libspa-bluez5.so`
+(`+0x5eb04`, then `+0x63024`) and automatically restarted. This is an observed
+audio acceptance failure, not proof that the new kernel caused it. No raw
+coredump was exported and no Bluetooth/audio patch series was added.
