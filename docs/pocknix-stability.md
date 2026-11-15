@@ -99,3 +99,21 @@ DSI outputs On. WirePlumber segfaulted once at resume in `libspa-bluez5.so`
 (`+0x5eb04`, then `+0x63024`) and automatically restarted. This is an observed
 audio acceptance failure, not proof that the new kernel caused it. No raw
 coredump was exported and no Bluetooth/audio patch series was added.
+
+## Storage anti-pattern: explicit user warning
+
+The device accumulated roughly 56 GiB in `/var/lib/aynthor`: many approximately
+360 MiB experimental sensor runtimes, old kernel/deployment payloads, partition
+exports and a 32 GiB recovery COW file. Successive experiments and upgrades left
+whole environments and recovery copies behind instead of retaining only useful
+results and removing consumed temporary inputs. Naming these files backup or
+investigation did not justify their retention.
+
+On the user's explicit deletion instruction, the obsolete named directories were
+deleted, not compressed or moved. The directory fell to approximately 2.5 GiB;
+the active sensor runtime, KeyMint material and current configuration remained,
+and motion/LAVD services stayed active. Earlier cleanup also removed roughly
+8 GiB of this task's temporary local/device build exports. Do not repeat this
+pattern: keep maintained source in Git, record experiment parameters/results,
+and remove each temporary full copy after its consumer finishes. Never treat
+normal task completion as permission to retain speculative recovery copies.
