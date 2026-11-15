@@ -39,6 +39,9 @@ ARM64 build uses a checksum-pinned mbx wrapper with automatic GC disabled.
 The installed Arch Linux ARM 1.1.3-2 metadata was inspected, but cannot by
 itself prove its complete patch set; rebuilding from the known upstream tag
 avoids both binary patching and duplicate application.
+The native build's bundled libbpf pre-includes system Linux types to support
+the `__u128` required by current ARM64 signal/ptrace headers, without editing
+system headers or Cargo registry sources.
 
 BSP packaging also routes its existing standalone Rust input daemon through
 a dependency-free Cargo manifest and the same pinned mbx wrapper. Edition
