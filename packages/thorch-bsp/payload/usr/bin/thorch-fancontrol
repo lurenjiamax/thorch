@@ -8,6 +8,7 @@ usage() {
   cat >&2 <<'EOF'
 usage:
   thorch-fancontrol status
+  thorch-fancontrol status-json
   thorch-fancontrol once
   thorch-fancontrol daemon
 EOF
@@ -42,7 +43,7 @@ speed4=119
 speed5=153
 speed6=204
 max_speed=255
-last_bucket=""
+last_speed=""
 
 die() {
   printf 'thorch-fancontrol: %s\n' "$*" >&2
@@ -137,6 +138,16 @@ set_profile_thresholds() {
   speed5="${THORCH_FAN_SPEED5:-${speed5}}"
   speed6="${THORCH_FAN_SPEED6:-${speed6}}"
   max_speed="${THORCH_FAN_MAX_SPEED:-${max_speed}}"
+
+  if [[ "${profile}" == custom ]]; then
+    speed1="${THORCH_FAN_CUSTOM_SPEED1:-${speed1}}"
+    speed2="${THORCH_FAN_CUSTOM_SPEED2:-${speed2}}"
+    speed3="${THORCH_FAN_CUSTOM_SPEED3:-${speed3}}"
+    speed4="${THORCH_FAN_CUSTOM_SPEED4:-${speed4}}"
+    speed5="${THORCH_FAN_CUSTOM_SPEED5:-${speed5}}"
+    speed6="${THORCH_FAN_CUSTOM_SPEED6:-${speed6}}"
+    max_speed="${THORCH_FAN_CUSTOM_MAX_SPEED:-${max_speed}}"
+  fi
 
   local name
   for name in t1 t2 t3 t4 t5 t6 max_temp speed1 speed2 speed3 speed4 speed5 speed6 max_speed; do
@@ -282,36 +293,41 @@ read_control_temp() {
 }
 
 fan_speed_for_temp() {
-  local temp="$1" bucket=0 speed=0
-
-  if ((temp > max_temp)); then
-    bucket=7; speed="${max_speed}"
-  elif ((temp > t6)); then
-    bucket=6; speed="${speed6}"
-  elif ((temp > t5)); then
-    bucket=5; speed="${speed5}"
-  elif ((temp > t4)); then
-    bucket=4; speed="${speed4}"
-  elif ((temp > t3)); then
-    bucket=3; speed="${speed3}"
-  elif ((temp > t2)); then
-    bucket=2; speed="${speed2}"
-  elif ((temp > t1)); then
-    bucket=1; speed="${speed1}"
+  local temp="$1" i low_temp=$((t1 - 5000)) low_speed=0 high_temp high_speed speed
+  local temps=("${t1}" "${t2}" "${t3}" "${t4}" "${t5}" "${t6}" "${max_temp}")
+  local speeds=("${speed1}" "${speed2}" "${speed3}" "${speed4}" "${speed5}" "${speed6}" 255)
+  if ((temp >= max_temp)); then
+    printf '7 255\n'
+    return
   fi
-
-  printf '%s %s\n' "${bucket}" "${speed}"
+  if ((temp <= low_temp)); then
+    printf '0 0\n'
+    return
+  fi
+  for ((i=0; i<7; i++)); do
+    high_temp="${temps[i]}"; high_speed="${speeds[i]}"
+    if ((temp <= high_temp)); then
+      speed=$((low_speed + (high_speed - low_speed) * (temp - low_temp) / (high_temp - low_temp)))
+      printf '%s %s\n' "$((i + 1))" "${speed}"
+      return
+    fi
+    low_temp="${high_temp}"; low_speed="${high_speed}"
+  done
 }
 
 apply_current_pwm() {
-  local force="${1:-0}" temp temp_source bucket speed
+  local force="${1:-0}" temp temp_source bucket speed decay
 
   read -r temp temp_source < <(read_control_temp) || die "no readable fan temperature sensors"
   read -r bucket speed < <(fan_speed_for_temp "${temp}")
-
-  if [[ "${force}" == "1" || "${bucket}" != "${last_bucket}" ]]; then
+  # Rising temperatures take effect immediately; cooling ramps down about 5% per 3 seconds.
+  decay=$((13 * poll_seconds / 3)); ((decay > 0)) || decay=1
+  if [[ "${force}" != "1" && -n "${last_speed}" ]] && ((temp < max_temp && speed < last_speed - decay)); then
+    speed=$((last_speed - decay))
+  fi
+  if [[ "${force}" == "1" || "${speed}" != "${last_speed}" ]]; then
     write_pwm "${speed}"
-    last_bucket="${bucket}"
+    last_speed="${speed}"
   fi
 }
 
@@ -337,6 +353,27 @@ print_status() {
   printf '  %s\n' "${temp_sensors[@]}"
 }
 
+print_status_json() {
+  load_config
+  prepare_runtime || die "fan PWM or thermal sensors not available"
+  local temp source bucket speed selected="${profile}" curve separator=""
+  read -r temp source < <(read_control_temp) || die "no readable fan temperature sensors"
+  read -r bucket speed < <(fan_speed_for_temp "${temp}")
+  printf '{"temperature":%s,"target_pwm":%s,"curves":{' "${temp}" "${speed}"
+  for curve in quiet moderate aggressive custom; do
+    profile="${curve}"
+    # Reload global speeds so a custom profile cannot contaminate preset previews.
+    speed1=51; speed2=77; speed3=102; speed4=119; speed5=153; speed6=204; max_speed=255
+    set_profile_thresholds
+    printf '%s"%s":{"temperatures":[%s,%s,%s,%s,%s,%s,%s],"pwm":[%s,%s,%s,%s,%s,%s,%s]}' \
+      "${separator}" "${curve}" "${t1}" "${t2}" "${t3}" "${t4}" "${t5}" "${t6}" "${max_temp}" \
+      "${speed1}" "${speed2}" "${speed3}" "${speed4}" "${speed5}" "${speed6}" "${max_speed}"
+    separator=,
+  done
+  profile="${selected}"
+  printf '}}\n'
+}
+
 run_once() {
   load_config
   prepare_runtime || die "fan PWM or thermal sensors not available"
@@ -349,6 +386,8 @@ cleanup_daemon() {
 }
 
 run_daemon() {
+  local config_signature current_signature
+  config_signature="$(cksum "${config}" 2>/dev/null || true)"
   load_config
   prepare_runtime_with_wait || die "fan PWM or thermal sensors not available"
   set_control 1 || die "failed to enable manual fan control"
@@ -357,6 +396,11 @@ run_daemon() {
 
   log "starting ${profile} fan profile"
   while true; do
+    current_signature="$(cksum "${config}" 2>/dev/null || true)"
+    # Re-exec keeps the service PID and avoids systemd's restart rate limit.
+    if [[ "${current_signature}" != "${config_signature}" ]]; then
+      exec "$0" daemon
+    fi
     apply_current_pwm
     sleep "${poll_seconds}"
   done
@@ -364,6 +408,7 @@ run_daemon() {
 
 case "${1:-status}" in
   status) print_status ;;
+  status-json) print_status_json ;;
   once) run_once ;;
   daemon) run_daemon ;;
   -h|--help)

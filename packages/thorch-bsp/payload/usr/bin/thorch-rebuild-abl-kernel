@@ -168,7 +168,14 @@ case "${THORCH_BOOT_DEBUG:-0}" in
   1) logging_args="no_console_suspend" ;;
   *) fail "THORCH_BOOT_DEBUG must be 0 or 1" ;;
 esac
+case "${THORCH_SCM_DUMP:-off}" in
+  off|full|mini|full,mini) dump_args="qcom_scm.download_mode=${THORCH_SCM_DUMP:-off}" ;;
+  *) fail "THORCH_SCM_DUMP must be off, full, mini or full,mini" ;;
+esac
 cmdline="panic=30 audit=0 ${logging_args} rw rootwait rootdelay=15 allow_mismatched_32bit_el0 fw_devlink.strict=1 pcie_ports=compat irqaffinity=0-2 cgroup.memory=nokmem,nosocket usbcore.interrupt_interval_override=045e:028e:2 mem_sleep_default=s2idle ufshcd_core.uic_cmd_timeout=3000 console=tty0 console=ttyMSM0,115200n8 fbcon=rotate:1 root=UUID=${root_uuid} rootfstype=${rootfstype}"
+if [[ "${THORCH_SCM_DUMP:-off}" != off ]]; then
+  cmdline+=" ${dump_args}"
+fi
 # ICE is initialized before userspace; preserve the selected kernel template's
 # opt-in crypto ABI rather than silently reverting to raw-key-only support.
 crypto_args=()

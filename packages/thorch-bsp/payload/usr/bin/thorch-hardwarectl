@@ -254,7 +254,8 @@ apply_governors() {
 }
 
 apply_fan_profile() {
-  run_systemctl try-restart thorch-fancontrol.service >/dev/null 2>&1 || true
+  run_systemctl reset-failed thorch-fancontrol.service
+  run_systemctl start thorch-fancontrol.service
 }
 
 apply_rgb_mode() {
