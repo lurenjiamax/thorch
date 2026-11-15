@@ -44,6 +44,12 @@ together when moving the hardware baseline.
 Android shared-storage setup and limits are described in
 [android-userdata-mount.md](android-userdata-mount.md).
 
+The KDE defaults package uses a KWin Wayland SDDM greeter and disables
+PowerDevil's DDC probing with `POWERDEVIL_NO_DDCUTIL=1`. The built-in DSI
+backlights keep their normal brightness controls; external DDC brightness
+control is disabled. Remove that environment override to opt back into DDC
+when using a compatible external display. Boot diagnostics remain opt-in.
+
 Thorch supplies the Arch Linux ARM root filesystem, KDE defaults, firmware
 package, initramfs and userspace installers. Kernel configuration and DTS changes
 are maintained directly in `linux-thorch`; the package's config requirements are
