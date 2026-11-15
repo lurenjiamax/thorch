@@ -15,3 +15,7 @@
 	path = sources/gamescope
 	url = https://github.com/lurenjiamax/gamescope.git
 	branch = main
+[submodule "sources/scx"]
+	path = sources/scx
+	url = https://github.com/lurenjiamax/scx.git
+	branch = main

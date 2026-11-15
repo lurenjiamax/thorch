@@ -16,5 +16,5 @@ systemd-run --unit=aynthor-userdata-share --collect \
   "--create-for-user=$(stat -c %u "$source")" \
   "--create-for-group=$(stat -c %g "$source")" \
   --chown-ignore --chgrp-ignore --chmod-ignore --xattr-ro \
-  -o nosuid,nodev,noexec "$source" "$target"
+  -o nosuid,nodev,exec "$source" "$target"
 echo "Shared media/0 at $target for UID $uid; verify with findmnt before use"

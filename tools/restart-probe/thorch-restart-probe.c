@@ -6,6 +6,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/panic_notifier.h>
 #include <linux/reboot.h>
 #include <linux/regmap.h>
 #include <uapi/linux/psci.h>
@@ -18,6 +19,9 @@ static bool early_control;
 module_param(early_control, bool, 0444);
 static bool halt_before_reset;
 module_param(halt_before_reset, bool, 0444);
+static bool panic_control;
+module_param(panic_control, bool, 0444);
+static bool panic_observed;
 static unsigned int original_mode;
 module_param(original_mode, uint, 0444);
 static unsigned int before_mode;
@@ -49,6 +53,13 @@ static int restart_probe(struct notifier_block *nb, unsigned long action,
 	struct arm_smccc_res result;
 	int ret;
 
+	if (panic_control) {
+		if (armed && READ_ONCE(panic_observed)) {
+			ret = set_mode(returned_mode);
+			pr_emerg("thorch-restart-probe: panic final-stage marker=%d\n", ret);
+		}
+		return NOTIFY_DONE;
+	}
 	if (!armed || (reboot_mode != REBOOT_WARM &&
 		       !(cold_control && reboot_mode == REBOOT_COLD)))
 		return NOTIFY_DONE;
@@ -99,6 +110,20 @@ static int early_probe(struct notifier_block *nb, unsigned long action, void *cm
 static struct notifier_block early_nb = {
 	.notifier_call = early_probe,
 	.priority = -128, /* after the standard reboot-mode notifier */
+};
+
+static int panic_probe(struct notifier_block *nb, unsigned long event, void *ptr)
+{
+	if (!armed || !panic_control)
+		return NOTIFY_DONE;
+	WRITE_ONCE(panic_observed, true);
+	set_mode(before_mode);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_nb = {
+	.notifier_call = panic_probe,
+	.priority = INT_MAX,
 };
 
 static int __init restart_probe_init(void)
@@ -173,11 +198,19 @@ static int __init restart_probe_init(void)
 		ret = restore_ret;
 	if (ret)
 		goto out_device;
+	if (panic_control)
+		restart_nb.priority = 256; /* before the dump watchdog's 255 */
 	ret = register_restart_handler(&restart_nb);
 	if (ret)
 		goto out_device;
 	ret = register_reboot_notifier(&early_nb);
 	if (ret) {
+		unregister_restart_handler(&restart_nb);
+		goto out_device;
+	}
+	ret = atomic_notifier_chain_register(&panic_notifier_list, &panic_nb);
+	if (ret) {
+		unregister_reboot_notifier(&early_nb);
 		unregister_restart_handler(&restart_nb);
 		goto out_device;
 	}
@@ -197,6 +230,7 @@ out_nodes:
 
 static void __exit restart_probe_exit(void)
 {
+	atomic_notifier_chain_unregister(&panic_notifier_list, &panic_nb);
 	unregister_reboot_notifier(&early_nb);
 	unregister_restart_handler(&restart_nb);
 	put_device(&provider->dev);
