@@ -680,7 +680,7 @@ keep_running_modules_until_reboot() {
     # A reinstall with the same uname release is safe only if the kernel Image
     # and module tree are byte-identical. Different ABIs cannot coexist at the
     # one path used by modprobe, so fail closed and restore the old payload.
-    if [[ ! -d "${destination}" ]] || ! diff -qr "${source}" "${destination}" >/dev/null; then
+    if [[ ! -d "${destination}" ]] || ! diff -qr --no-dereference "${source}" "${destination}" >/dev/null; then
       return 1
     fi
     return 0

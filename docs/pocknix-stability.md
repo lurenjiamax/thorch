@@ -70,3 +70,25 @@ not establish acceptance of thorch47 or resolve the long-sleep RCU hang.
 No runtime sysctl override or automatic detector restoration is added. Pacman's
 normal sysctl hook applies the performance defaults on package installation;
 diagnostic detection remains an explicit operator choice afterwards.
+
+## Deployment findings
+
+Kernel47, headers47, BSP50 and scx-scheds 1.1.3-3 installed and booted on
+Thor. The boot transaction reached confirmed; LAVD remained active with zero
+restarts, both SSC streams returned measurements, both DSI outputs were
+connected with backlights on, Wi-Fi carried SSH traffic and Wayland vkcube
+rendered 120 frames on Turnip A740. All three watchdog values were zero after
+installation and after boot. These observations do not establish sleep acceptance.
+
+Dump-debug 0.1.0-9 adds only an explicit watchdog master/detector enable command
+to its existing service, ordered after sysctl. The old tool requires detectors
+already enabled; setting nmi_watchdog alone while watchdog=0 is ineffective.
+The diagnostic start/stop path was exercised without causing a panic, then all
+three watchdog values were returned to zero.
+
+BSP51 corrects the existing identical-module comparison to compare symlinks
+without dereferencing. Packaged headers contain intentionally unresolved
+source-tool links; following them made an unchanged-module reinstall fail.
+The retained module tree and installed tree compare equal without dereference,
+and the installed/rebuilt dump module SHA256 is identical. The original
+same-release byte-identity safeguard remains in force.
