@@ -51,6 +51,12 @@ control is disabled. Remove that environment override to opt back into DDC
 when using a compatible external display. Boot diagnostics remain opt-in.
 UPower starts with the system, before the desktop requests battery information.
 
+CPU0's rail-collapse idle state is disabled while awake for the GMU workaround.
+As in Pocknix's SM8550 sleep policy, the BSP temporarily enables it during
+system sleep and restores the actual pre-sleep setting afterward. Without it,
+CPU0 cannot join s2idle tick-freeze and suspend time advances monotonic clocks,
+expiring scheduler and service watchdogs when the system wakes.
+
 Thorch supplies the Arch Linux ARM root filesystem, KDE defaults, firmware
 package, initramfs and userspace installers. Kernel configuration and DTS changes
 are maintained directly in `linux-thorch`; the package's config requirements are

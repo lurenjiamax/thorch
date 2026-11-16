@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+idle=/sys/devices/system/cpu/cpu0/cpuidle/state1/disable
+saved=/run/thorch/cpu0-idle-state1
+
+case "${1:-}" in
+  pre)
+    [ -w "$idle" ] || exit 0
+    # CPU0 must join tick-freeze so suspend time stays out of monotonic clocks.
+    install -d -m 0755 /run/thorch
+    cat "$idle" > "$saved"
+    printf '0\n' > "$idle"
+    ;;
+  post)
+    [ -f "$saved" ] || exit 0
+    value=$(cat "$saved")
+    case "$value" in
+      0|1) printf '%s\n' "$value" > "$idle" ;;
+      *) exit 1 ;;
+    esac
+    rm -f "$saved"
+    ;;
+esac
