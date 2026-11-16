@@ -1,5 +1,20 @@
 # Pocknix sleep backport candidate
 
+## Current resume regression
+
+The SM8550 BSP's `sleep.d/{pre,post}/010-cpuidle-state1` hooks temporarily
+enable CPU0 state1 and restore its previous value. Thorch's awake-time GMU
+workaround disabled that state without the sleep exception. CPU0 then cannot
+enter the tick-freeze path, leaving monotonic time advancing across s2idle.
+The BSP now provides the equivalent `system-sleep/thorch-cpuidle` hook.
+
+The touchscreen retain-power change (1050), GMU fixes (1076-1078), and UCSI
+role correction (1096) are already in kernel47. The separate LPASS/SoundWire
+and PCIe-collapse stack remains outside this repair. Pocknix's kernel base is
+7.2.10; this repair retains Thorch's maintained 7.1.2 source.
+
+## Earlier comparisons
+
 Source: shuuri-labs/pocknix-os snapshot
 f09134848187911ec3a0a5b15cf2083f6de677e8 (2026-11-10).
 Candidate: GCC16.2/GNU, no LTO, 7.1.2-thorch46. Kernel40 remains the accepted
