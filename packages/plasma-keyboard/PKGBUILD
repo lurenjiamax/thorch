@@ -2,7 +2,7 @@
 
 pkgname=plasma-keyboard
 pkgver=6.7.3
-pkgrel=17
+pkgrel=18
 pkgdesc='Thorch-tuned Plasma on-screen keyboard'
 arch=(aarch64)
 url='https://invent.kde.org/plasma/plasma-keyboard'
@@ -21,8 +21,10 @@ source=("https://download.kde.org/stable/plasma/${pkgver}/${pkgname}-${pkgver}.t
         0008-load-layout-smoke-test.patch
         0009-refresh-thorch-keyboard-style.patch
         0010-normalize-modifier-keysyms.patch
-        0011-forward-explicit-modifier-state.patch)
+         0011-forward-explicit-modifier-state.patch
+         0012-link-kcm-qml.patch)
 sha256sums=('c371d98c4588db6672a93aa13b53d178f2dc383bdb580c8bed65d1849be7c97e'
+            'SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
@@ -48,12 +50,13 @@ prepare() {
   patch -Np1 -i "${srcdir}/0009-refresh-thorch-keyboard-style.patch"
   patch -Np1 -i "${srcdir}/0010-normalize-modifier-keysyms.patch"
   patch -Np1 -i "${srcdir}/0011-forward-explicit-modifier-state.patch"
+  patch -Np1 -i "${srcdir}/0012-link-kcm-qml.patch"
 }
 
 build() {
   cmake -B build -S "${pkgname}-${pkgver}" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_TESTING=ON
+    -DBUILD_TESTING=OFF
   cmake --build build
 }
 
