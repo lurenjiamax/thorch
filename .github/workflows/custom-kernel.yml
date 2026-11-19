@@ -87,6 +87,17 @@ jobs:
           repository: lurenjiamax/scx
           ref: ${{ steps.sources.outputs.scx }}
           path: sources/scx
+      - name: Checkout HandheldDash
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/HandheldDash
+          ref: ${{ steps.sources.outputs.handhelddash }}
+          path: handhelddash-src
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: lurenjiamax/fcitx5-osk
+          ref: ${{ steps.sources.outputs.fcitx5_osk }}
+          path: fcitx5-osk-src
       - name: Build native ARM64 builder
         run: make docker-image-build
       - name: Fetch checksum-pinned Thor sensor firmware and copyright notice

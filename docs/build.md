@@ -57,6 +57,14 @@ system sleep and restores the actual pre-sleep setting afterward. Without it,
 CPU0 cannot join s2idle tick-freeze and suspend time advances monotonic clocks,
 expiring scheduler and service watchdogs when the system wakes.
 
+Images include HandheldDash, Keymasq and the Thor Fcitx5 Osk keyboard. KWin
+launches Fcitx5 Osk as the default Wayland input method; new users receive
+US keyboard and Rime input profiles. Existing custom input-method selections
+and remapping profiles are preserved. Keymasq ships without active mappings.
+Keymasq and Fcitx5 Osk permit redistribution under MIT; their copyright and
+license notices are installed with the packages. HandheldDash includes its
+LGPL, MIT and ISC notices and corresponding public source revision.
+
 Thorch supplies the Arch Linux ARM root filesystem, KDE defaults, firmware
 package, initramfs and userspace installers. Kernel configuration and DTS changes
 are maintained directly in `linux-thorch`; the package's config requirements are

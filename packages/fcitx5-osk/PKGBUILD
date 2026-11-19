@@ -1,0 +1,25 @@
+pkgname=fcitx5-osk
+pkgver=0.2.1.r5.gfea14b4
+pkgrel=1
+pkgdesc='Fcitx5 touch keyboard and KDE Wayland launcher with Thor controls'
+arch=(aarch64)
+url='https://github.com/lurenjiamax/fcitx5-osk'
+license=(MIT)
+depends=(fcitx5 wayland libxkbcommon libxcb openssl ttf-nerd-fonts-symbols-mono)
+makedepends=(rust cargo cmake pkgconf)
+provides=(fcitx5-osk-git fcitx5-osk-kwin-launcher fcitx5-osk-kwin-launcher-git)
+conflicts=(fcitx5-osk-git fcitx5-osk-kwin-launcher fcitx5-osk-kwin-launcher-git)
+options=('!lto' '!debug')
+_source="${THORCH_FCITX5_OSK_SOURCE_DIR:-${startdir}/../../fcitx5-osk-src}"
+
+build() {
+  cmake -S "$_source" -B "$srcdir/build" \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib -DDBUS_CONFIG_PARENT_DIR=/usr/share
+  cargo build --release --locked --manifest-path "$_source/Cargo.toml" \
+    --target-dir "$srcdir/build/cargo_target"
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install "$srcdir/build"
+}

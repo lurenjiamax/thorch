@@ -1,0 +1,49 @@
+pkgname=keymasq
+pkgver=0.21.1
+pkgrel=1
+pkgdesc='Keyboard, mouse and gamepad remapper with layered profiles and macros'
+arch=(any)
+url='https://github.com/nyrda/keymasq'
+license=(MIT)
+depends=(acl slurp 'python>=3.12' python-evdev python-tomli-w python-dbus-next
+         python-uvloop python-xlib python-gobject python-cairo gtk4 libadwaita
+         libxkbcommon polkit systemd)
+makedepends=(python-setuptools python-wheel python-build python-installer)
+install=keymasq.install
+source=("keymasq-$pkgver.tar.gz::https://codeload.github.com/nyrda/keymasq/tar.gz/refs/tags/v$pkgver")
+sha256sums=('0a65c02e1aada7ae8eda21e5b3c6c80896a7bd5a113ebf69a562a5f98b8b1115')
+
+build() {
+  cd "$srcdir/keymasq-$pkgver"
+  python -m build --wheel --no-isolation --outdir "$srcdir/python-dist"
+}
+
+package() {
+  cd "$srcdir/keymasq-$pkgver"
+  python -m installer --destdir="$pkgdir" "$srcdir"/python-dist/*.whl
+  install -Dm644 assets/tools.keymasq.keymasq.desktop "$pkgdir/usr/share/applications/tools.keymasq.keymasq.desktop"
+  install -Dm644 assets/tools.keymasq.keymasq.metainfo.xml "$pkgdir/usr/share/metainfo/tools.keymasq.keymasq.metainfo.xml"
+  install -Dm644 assets/tools.keymasq.keymasq.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tools.keymasq.keymasq.svg"
+  local icon size
+  for icon in assets/icons/tools.keymasq.keymasq-*.png; do
+    size="${icon##*-}"
+    size="${size%.png}"
+    install -Dm644 "$icon" "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/tools.keymasq.keymasq.png"
+  done
+  install -Dm644 systemd/keymasqd.service "$pkgdir/usr/lib/systemd/system/keymasqd.service"
+  install -Dm644 systemd/keymasq-hardware@.service "$pkgdir/usr/lib/systemd/system/keymasq-hardware@.service"
+  install -Dm644 systemd/keymasq-session.service "$pkgdir/usr/lib/systemd/user/keymasq-session.service"
+  install -Dm644 sysusers.d/keymasq.conf "$pkgdir/usr/lib/sysusers.d/keymasq.conf"
+  install -Dm644 tmpfiles.d/keymasq.conf "$pkgdir/usr/lib/tmpfiles.d/keymasq.conf"
+  local rule
+  for rule in 91-keymasq-acl.rules 99-keymasq-hide-grabbed.rules; do
+    install -Dm644 "udev/$rule" "$pkgdir/usr/lib/udev/rules.d/$rule"
+  done
+  install -Dm644 packaging/pacman/keymasq-prepare-removal.hook "$pkgdir/usr/share/libalpm/hooks/keymasq-prepare-removal.hook"
+  install -Dm644 polkit/49-keymasq-hardware.rules "$pkgdir/usr/share/polkit-1/rules.d/49-keymasq-hardware.rules"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 examples/security.toml "$pkgdir/usr/share/doc/$pkgname/security.toml"
+  install -d "$pkgdir/usr/share/gnome-shell/extensions/gnome-bridge@keymasq.tools"
+  cp -a gnome-extension/gnome-bridge@keymasq.tools/. "$pkgdir/usr/share/gnome-shell/extensions/gnome-bridge@keymasq.tools/"
+}

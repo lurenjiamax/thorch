@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Native ARM64 custom distribution: published component main/master snapshots.
+# Native ARM64 custom distribution: published component snapshots.
 set -euo pipefail
 [[ $(uname -m) == aarch64 && $(id -u) == 0 ]] || {
   echo 'Run inside the native privileged ARM64 builder' >&2; exit 1;

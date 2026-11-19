@@ -81,6 +81,13 @@ jobs:
           ref: master
           path: tme-src
 
+      - name: Checkout HandheldDash package source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: lurenjiamax/HandheldDash
+          ref: 8c2eaf454fd6c3def1f911b7ab811909e1d06607
+          path: handhelddash-src
+
       - name: Prepare rootless workspace
         run: |
           set -euo pipefail

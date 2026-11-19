@@ -346,6 +346,12 @@ apply_kwin_input_defaults() {
         if (section == "[Wayland]" && normalized ~ /^VirtualKeyboardMode[[:space:]]*=/) {
           keyboard_mode_configured = 1
         }
+        if (section == "[Wayland]" && normalized ~ /^InputMethod[[:space:]]*=/) {
+          input_method_configured = 1
+          if (normalized ~ /^InputMethod[[:space:]]*=[[:space:]]*\/usr\/share\/applications\/(thorch-plasma-keyboard|org\.kde\.plasma\.keyboard)\.desktop[[:space:]]*$/) {
+            lines[NR] = "InputMethod=/usr/share/applications/fyi.fortime.Fcitx5Osk.KwinLauncher.desktop"
+          }
+        }
         if (section == "[TouchEdges]" && normalized ~ /^(Top|Right|Bottom|Left)[[:space:]]*=/) {
           gestures_configured = 1
         }
@@ -357,6 +363,7 @@ apply_kwin_input_defaults() {
       END {
         add_controller = !controller_configured
         add_keyboard_mode = legacy_keyboard_enabled && !keyboard_mode_configured
+        add_input_method = !input_method_configured
         add_gestures = !gestures_configured
 
         for (i = 1; i <= NR; i++) {
@@ -368,6 +375,10 @@ apply_kwin_input_defaults() {
           }
           if (add_keyboard_mode && group_seen["[Wayland]"] && i == group_last["[Wayland]"]) {
             print "VirtualKeyboardMode=2"
+            output_lines++
+          }
+          if (add_input_method && group_seen["[Wayland]"] && i == group_last["[Wayland]"]) {
+            print "InputMethod=/usr/share/applications/fyi.fortime.Fcitx5Osk.KwinLauncher.desktop"
             output_lines++
           }
           if (add_gestures && group_seen["[TouchEdges]"] && i == group_last["[TouchEdges]"]) {
@@ -382,6 +393,9 @@ apply_kwin_input_defaults() {
 
         if (add_controller && !group_seen["[Plugins]"]) {
           append_group("[Plugins]", "gamecontrollerEnabled=true")
+        }
+        if (add_input_method && !group_seen["[Wayland]"]) {
+          append_group("[Wayland]", "InputMethod=/usr/share/applications/fyi.fortime.Fcitx5Osk.KwinLauncher.desktop")
         }
         if (add_gestures && !group_seen["[TouchEdges]"]) {
           append_group("[TouchEdges]", "Right=KRunner")

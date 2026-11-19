@@ -1,0 +1,12 @@
+pkgname=handhelddash
+pkgver=1.4.2
+pkgrel=7
+THORCH_HANDHELDDASH_SOURCE_DIR="${THORCH_HANDHELDDASH_SOURCE_DIR:-${startdir}/../../handhelddash-src}"
+source "$THORCH_HANDHELDDASH_SOURCE_DIR/PKGBUILD"
+export HANDHELDDASH_SOURCE_ROOT="$THORCH_HANDHELDDASH_SOURCE_DIR"
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory
+export GIT_CONFIG_VALUE_0="$THORCH_HANDHELDDASH_SOURCE_DIR"
+source=()
+sha256sums=()
+# Image service presets supply the component's installation defaults.
+unset install

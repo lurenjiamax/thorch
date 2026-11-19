@@ -1,1 +1,3 @@
 enable thorch-audio-init.service
+enable aynthor-control.service
+enable keymasq-session.service

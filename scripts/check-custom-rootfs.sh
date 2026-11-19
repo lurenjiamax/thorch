@@ -3,7 +3,7 @@
 set -euo pipefail
 root=${1:?Supply assembled root filesystem}
 [[ -d "$root/usr" && -d "$root/var/lib/pacman/local" ]]
-packages=(linux-thorch linux-thorch-headers thorch-bsp thorch-tme-modules thorch-motion thorch-motion-firmware thorch-inputplumber)
+packages=(linux-thorch linux-thorch-headers thorch-bsp thorch-tme-modules thorch-motion thorch-motion-firmware thorch-inputplumber handhelddash keymasq fcitx5-osk fcitx5-rime)
 for package in "${packages[@]}"; do
   pacman --root "$root" -Q "$package"
 done
@@ -20,6 +20,21 @@ if grep -R -E '^[[:space:]]*kernel\.hardlockup_panic[[:space:]]*=[[:space:]]*1' 
   echo 'Forced hardlockup panic in production root' >&2; exit 1
 fi
 echo 'Custom package inventory and production defaults passed'
+grep -Fxq 'InputMethod=/usr/share/applications/fyi.fortime.Fcitx5Osk.KwinLauncher.desktop' \
+  "$root/etc/skel/.config/kwinrc"
+for file in \
+  usr/bin/handhelddash \
+  usr/bin/keymasq \
+  usr/bin/fcitx5-osk \
+  usr/bin/fcitx5-osk-kwin-launcher \
+  usr/share/licenses/keymasq/LICENSE; do
+  [[ -s "$root/$file" ]] || { echo "Missing bundled desktop component: $file" >&2; exit 1; }
+done
+for unit in aynthor-hardwared.service keymasqd.service; do
+  [[ -L "$root/etc/systemd/system/multi-user.target.wants/$unit" ]] || {
+    echo "Missing bundled service preset: $unit" >&2; exit 1;
+  }
+done
 for file in \
   usr/lib/firmware/qcom/sm8550/ayn/thor/adsp.mdt \
   usr/lib/firmware/qcom/sm8550/ayn/thor/adsp.b02 \

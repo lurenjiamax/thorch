@@ -8,7 +8,7 @@ gamecontrollerEnabled=true
 Right=KRunner
 
 [Wayland]
-InputMethod=/usr/share/applications/thorch-plasma-keyboard.desktop
+InputMethod=/usr/share/applications/fyi.fortime.Fcitx5Osk.KwinLauncher.desktop
 InputPanelPlacement=Auto
 VirtualKeyboardEnabled=true
 VirtualKeyboardMode=2

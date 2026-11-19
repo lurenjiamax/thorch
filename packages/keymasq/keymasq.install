@@ -1,0 +1,26 @@
+post_install() {
+  systemd-sysusers /usr/lib/sysusers.d/keymasq.conf
+  systemd-tmpfiles --create /usr/lib/tmpfiles.d/keymasq.conf
+  if [ ! -e /etc/keymasq/security.toml ]; then
+    install -Dm644 /usr/share/doc/keymasq/security.toml /etc/keymasq/security.toml
+  fi
+  if [ -S /run/udev/control ]; then
+    udevadm control --reload-rules
+    udevadm trigger --subsystem-match=input --action=change
+    udevadm trigger --subsystem-match=misc --sysname-match=uinput --action=change
+    udevadm trigger --subsystem-match=hidraw --action=change
+  fi
+}
+
+post_upgrade() {
+  post_install
+  systemctl try-restart keymasqd.service >/dev/null 2>&1 || true
+}
+
+post_remove() {
+  if [ -S /run/udev/control ]; then
+    udevadm control --reload-rules
+    udevadm trigger --subsystem-match=input --action=change
+    udevadm trigger --subsystem-match=misc --sysname-match=uinput --action=change
+  fi
+}

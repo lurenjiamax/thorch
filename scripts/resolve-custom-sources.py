@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve maintained main/master branches once for a custom image build."""
+"""Resolve declared maintained source revisions once for a custom image build."""
 import argparse
 import json
 from pathlib import Path
@@ -21,11 +21,13 @@ def main():
             config[key] = value
     resolved = {}
     for component in ('KERNEL', 'TME', 'INPUTPLUMBER', 'MOTION', 'DUMP',
-                      'HEXAGONRPC', 'LIBSSC', 'POWERDEVIL', 'GAMESCOPE', 'SCX'):
+                      'HEXAGONRPC', 'LIBSSC', 'POWERDEVIL', 'GAMESCOPE', 'SCX',
+                      'HANDHELDDASH', 'FCITX5_OSK'):
         repository = config[f'{component}_SOURCE_REPOSITORY']
         branch = config[f'{component}_SOURCE_BRANCH']
-        if branch not in ('main', 'master'):
-            raise ValueError(f'{component}: only main/master supported')
+        if subprocess.run(['git', 'check-ref-format', f'refs/heads/{branch}'],
+                          capture_output=True).returncode:
+            raise ValueError(f'{component}: invalid source branch')
         ref = config.get(f'{component}_SOURCE_REVISION', branch)
         revision = subprocess.check_output(
             ['gh', 'api', f'repos/{repository}/commits/{ref}', '--jq', '.sha'],

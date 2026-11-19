@@ -5,6 +5,24 @@
   },
   "packages": [
     {
+      "name": "handhelddash",
+      "path": "packages/handhelddash",
+      "profiles": ["build", "image", "release"],
+      "build_inputs": ["THORCH_HANDHELDDASH_SOURCE_DIR"]
+    },
+    {
+      "name": "fcitx5-osk",
+      "path": "packages/fcitx5-osk",
+      "profiles": ["build", "image", "release"],
+      "build_inputs": ["THORCH_FCITX5_OSK_SOURCE_DIR"]
+    },
+    {
+      "name": "keymasq",
+      "path": "packages/keymasq",
+      "profiles": ["build", "image", "release"],
+      "build_inputs": []
+    },
+    {
       "name": "scx-scheds",
       "path": "packages/scx-scheds",
       "profiles": ["build", "image", "release"],
