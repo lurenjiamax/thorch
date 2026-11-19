@@ -92,7 +92,7 @@ bash scripts/build-packages.sh --packages "$remaining_csv"
 cp "$repo"/*.pkg.tar.zst "$out/"
 export THORCH_IMAGE_EXTRA_PACKAGES='linux-thorch-headers thorch-tme-modules thorch-motion thorch-motion-firmware'
 bash scripts/build-image.sh --skip-package-build
-bash scripts/check-custom-rootfs.sh "$root/build/image-rootfs"
+bash scripts/check-custom-rootfs.sh "$root/build/image-rootfs" "$root/output/custom-sources.json"
 bash scripts/check-thorch-image.sh "$root/output/thorch-arch-aarch64.img"
 # Optional diagnostics is a separate release asset, never an image package.
 package "$root/dump-src/packaging"

@@ -2,6 +2,7 @@
 # Inspect the assembled production root, not the live diagnostic device.
 set -euo pipefail
 root=${1:?Supply assembled root filesystem}
+sources=${2:?Supply resolved source manifest}
 [[ -d "$root/usr" && -d "$root/var/lib/pacman/local" ]]
 packages=(linux-thorch linux-thorch-headers thorch-bsp thorch-tme-modules thorch-motion thorch-motion-firmware thorch-inputplumber handhelddash keymasq fcitx5-osk fcitx5-rime)
 for package in "${packages[@]}"; do
@@ -35,6 +36,22 @@ for unit in aynthor-hardwared.service keymasqd.service; do
     echo "Missing bundled service preset: $unit" >&2; exit 1;
   }
 done
+for unit in \
+  graphical-session.target.wants/aynthor-control.service \
+  default.target.wants/keymasq-session.service; do
+  [[ -L "$root/etc/systemd/user/$unit" ]] || {
+    echo "Missing bundled user service preset: $unit" >&2; exit 1;
+  }
+done
+python3 - "$root/usr/share/aynthor/build.json" "$sources" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+manifest, sources = (json.loads(Path(path).read_text()) for path in sys.argv[1:])
+if manifest['commit'] != sources['handhelddash']['commit']:
+    raise SystemExit('HandheldDash package does not match its resolved source')
+PY
 for file in \
   usr/lib/firmware/qcom/sm8550/ayn/thor/adsp.mdt \
   usr/lib/firmware/qcom/sm8550/ayn/thor/adsp.b02 \
